@@ -207,17 +207,16 @@ class LinksModel {
 }
 
 class LinkbookView {
+    #app;
     #pinnedLinksCategory;
     #pinnedLinksNewLinkButton;
     #pinnedLinksNewGroupButton;
-    #pinnedLinksMoreButton;
     #pinnedLinksList;
     #pinnedLinksDisplay;
 
     #allLinksCategory;
     #allLinksNewLinkButton;
     #allLinksNewGroupButton;
-    #allLinksMoreButton;
     #allLinksList;
 
     #linkDataForm;
@@ -226,28 +225,39 @@ class LinkbookView {
     #linkDataFormSaveLinkButton;
     #linkDataFormExitButton;
 
+    #optionsMenu;
+    #optionsMenuPin;
+    #optionsMenuUnPin;
+    #optionsMenuEdit;
+    #optionsMenuDelete;
+
     #onOpenLinkDataForm;
+    #onOpenOptionsMenu;
 
     constructor() {
+        this.#app = this.getElement('.content');
         this.#pinnedLinksCategory = this.getElement('#linkbook-category-pinned-links');
         this.#pinnedLinksNewLinkButton = this.getElement('[data-id="add-link-button"]', this.#pinnedLinksCategory);
         this.#pinnedLinksNewGroupButton = this.getElement('[data-id="add-group-button"]', this.#pinnedLinksCategory);
-        this.#pinnedLinksMoreButton = this.getElement('[data-id="more-button"]', this.#pinnedLinksCategory);
         this.#pinnedLinksList = this.getElement('[data-id="linkbook-links-list"]', this.#pinnedLinksCategory);
+        this.#pinnedLinksDisplay = this.getElement('.pinned-groups');
 
         this.#allLinksCategory = this.getElement('#linkbook-category-all-links');
         this.#allLinksNewLinkButton = this.getElement('[data-id="add-link-button"]', this.#allLinksCategory);
         this.#allLinksNewGroupButton = this.getElement('[data-id="add-group-button"]', this.#allLinksCategory);
-        this.#allLinksMoreButton = this.getElement('[data-id="more-button"]', this.#allLinksCategory);
         this.#allLinksList = this.getElement('[data-id="linkbook-links-list"]', this.#allLinksCategory);
-
-        this.#pinnedLinksDisplay = this.getElement('.pinned-groups');
 
         this.#linkDataForm = this.getElement('.link-content-form');
         this.#linkDataFormNameField = this.getElement('[name="link-form-name"]', this.#linkDataForm);
         this.#linkDataFormLinkField = this.getElement('[name="link-form-link"]', this.#linkDataForm);
         this.#linkDataFormSaveLinkButton = this.getElement('.link-form-buttons__submit', this.#linkDataForm);
         this.#linkDataFormExitButton = this.getElement('.link-content-form__details-exit', this.#linkDataForm);
+        
+        this.#optionsMenu = this.getElement('.link-options-menu');
+        this.#optionsMenuPin = this.getElement('#link-options-menu-pin', this.#optionsMenu);
+        this.#optionsMenuUnPin = this.getElement('#link-options-menu-unpin', this.#optionsMenu);
+        this.#optionsMenuEdit = this.getElement('#link-options-menu-edit', this.#optionsMenu);
+        this.#optionsMenuDelete = this.getElement('#link-options-menu-delete', this.#optionsMenu);
     }
 
     getElement(selector, parent) {
@@ -303,7 +313,20 @@ class LinkbookView {
         });
     }
 
-    #createLinkDisplay(linkData) {
+    bindOpenOptionsMenu(handler) {
+        this.#onOpenOptionsMenu = handler;
+    }
+
+    bindCloseOptionsMenu(handler) {
+        this.#app.addEventListener('click', event => {
+            if(event.target.classList.contains('options-button__icon')) {
+                return;
+            }
+            handler();
+        });
+    }
+
+    #createLinkDisplay(linkData, isPinned) {
         const linkRoot = this.createElement('div', 'linkbook-browser-links-group__link-item');
         const linkDetails = this.createElement('button', 'linkbook-browser-links-group__link-item-details');
         const linkImg = this.createElement('img', 'linkbook-browser-links-group__link-item-icon');   
@@ -318,6 +341,10 @@ class LinkbookView {
         linkRoot.append(linkDetails, linkOptions);
         linkDetails.append(linkImg, linkNameText);
         linkOptions.append(linkOptionMenuButton);
+
+        linkOptionMenuButton.addEventListener('click', _ => {
+            this.#onOpenOptionsMenu(linkRoot, linkData.type, linkData.id, isPinned, {pin: !isPinned, unpin: isPinned && linkData.parent === 0, edit: true, delete: true});
+        });
 
         return linkRoot;
     }
@@ -347,6 +374,10 @@ class LinkbookView {
         groupHeaderOptions.append(groupHeaderOptionAddLinkButton, groupHeaderOptionOptionsMenuButton);
 
         groupHeaderOptionAddLinkButton.addEventListener('click', _ => this.#onOpenLinkDataForm(groupData.id, (groupData.id !== 0 ? false : isPinned)));
+
+        groupHeaderOptionOptionsMenuButton.addEventListener('click', _ => {
+            this.#onOpenOptionsMenu(groupRoot, groupData.type, groupData.id, isPinned, {pin: !isPinned, unpin: isPinned, edit: true, delete: true});
+        });
 
         return groupRoot;
     }
@@ -400,7 +431,7 @@ class LinkbookView {
 
         for(const element of elements) {
             if(element.type === 'link') {
-                const linkDisplay = this.#createLinkDisplay(element);
+                const linkDisplay = this.#createLinkDisplay(element, false);
                 this.#allLinksList.append(linkDisplay);
             } else {
                 const groupDisplay = this.#createGroupDisplay(element, false);
@@ -408,7 +439,7 @@ class LinkbookView {
 
                 const groupList = this.getElement('.linkbook-browser-links-group__links', groupDisplay);
                 for(const child of element.children) {
-                    const linkDisplay = this.#createLinkDisplay(child);
+                    const linkDisplay = this.#createLinkDisplay(child, false);
                     groupList.append(linkDisplay);
                 }
             }
@@ -427,7 +458,7 @@ class LinkbookView {
             const groupList = this.getElement('.linkbook-browser-links-group__links', groupDisplay);
 
             for(const child of element.children) {
-                const linkDisplay = this.#createLinkDisplay(child);
+                const linkDisplay = this.#createLinkDisplay(child, true);
                 groupList.append(linkDisplay);
             }
         }
@@ -457,6 +488,26 @@ class LinkbookView {
     closeLinkDataForm() {
         this.#linkDataForm.classList.add('link-content-form--disabled');  
     }
+
+    openOptionsMenu(position, options) {
+        this.#optionsMenu.style.setProperty('--position-x', `${position.x}px`);
+        this.#optionsMenu.style.setProperty('--position-y', `${position.y}px`);
+
+        if(options.pin) this.#optionsMenuPin.classList.remove('link-options-menu__option--disabled');
+        else this.#optionsMenuPin.classList.add('link-options-menu__option--disabled');
+        if(options.unpin) this.#optionsMenuUnPin.classList.remove('link-options-menu__option--disabled');
+        else this.#optionsMenuUnPin.classList.add('link-options-menu__option--disabled');
+        if(options.edit) this.#optionsMenuEdit.classList.remove('link-options-menu__option--disabled');
+        else this.#optionsMenuEdit.classList.add('link-options-menu__option--disabled');
+        if(options.delete) this.#optionsMenuDelete.classList.remove('link-options-menu__option--disabled');
+        else this.#optionsMenuDelete.classList.add('link-options-menu__option--disabled');
+
+        this.#optionsMenu.classList.remove('link-options-menu--disabled');
+    }
+
+    closeOptionsMenu() {
+        this.#optionsMenu.classList.add('link-options-menu--disabled');
+    }
 }
 
 class LinksController {
@@ -464,15 +515,19 @@ class LinksController {
     #view;
 
     #newLinkData;
+    #moreOptionsState;
 
     constructor(model, view) {
         this.#model = model;
         this.#view = view;
 
         this.#model.bindLinkbookDataChanged(this.#onLinkbookDataChanged.bind(this));
+
         this.#view.bindOpenLinkDataForm(this.#onOpenLinkDataForm.bind(this));
         this.#view.bindCloseLinkDataForm(this.#onCloseLinkDataForm.bind(this));
         this.#view.bindSaveLinkDataForm(this.#onSaveLinkDataForm.bind(this));
+        this.#view.bindOpenOptionsMenu(this.#onOpenOptionsMenu.bind(this));
+        this.#view.bindCloseOptionsMenu(this.#onCloseOptionsMenu.bind(this));
 
         (async () => {
             const data = await this.#model.compileLinkbookData();
@@ -523,6 +578,16 @@ class LinksController {
         const linkData = {...formData, ...this.#newLinkData};
         this.#onCloseLinkDataForm();
         this.#model.createLink(linkData);
+    }
+
+    #onOpenOptionsMenu(element, elementType, elementId, isElementPinned, options) {
+        const elementRect = element.getBoundingClientRect();
+        this.#moreOptionsState = {type: elementType, id: elementId, isPinned: isElementPinned};
+        this.#view.openOptionsMenu({x:  elementRect.right, y: elementRect.y + 30}, options);
+    }
+
+    #onCloseOptionsMenu() {
+        this.#view.closeOptionsMenu();
     }
 }
 

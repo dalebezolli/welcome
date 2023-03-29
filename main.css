@@ -651,6 +651,10 @@ body {
     font-size: .875rem;
 }
 
+.link-options-menu__option--disabled {
+    display: none;
+}
+
 .link-options-menu__option:where(:hover, :focus) {
     background-color: var(--color-netural-600);
 }
