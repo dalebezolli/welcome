@@ -5,9 +5,52 @@ class LinksModel {
     #databaseName;
     #databaseVersion;
 
+    #onLinkbookDataChanged;
+
     constructor() {
         this.#databaseName = 'Primary';
         this.#databaseVersion = '1'
+    }
+    
+    bindLinkbookDataChanged(callback) {
+        this.#onLinkbookDataChanged = callback;
+    }
+
+    async compileLinkbookData() {
+        const links = await this.getLinks();
+        const groups = await this.getGroups();
+
+        const groupChildren = new Map();
+        for(const link of links) {
+            if(!groupChildren.get(link.parent)) {
+                groupChildren.set(link.parent, [link]);
+            } else {
+                groupChildren.set(link.parent, [...groupChildren.get(link.parent), link]);
+            }
+        }
+
+        for(const group of groups) {
+            if(groupChildren.has(group.id)) continue;
+            groupChildren.set(group.id, []);       
+        }
+
+        const data = [];
+        for(const [groupId, children] of groupChildren) {
+            let parent;
+            if(groupId === 0) {
+                parent = data;
+            } else {
+                const group = {...await this.getGroup(groupId), children: []};
+                parent = group.children;
+                data.push(group);
+            }
+
+            for(const link of children) {
+                parent.push(link);
+            }
+        }
+
+        return data;
     }
 
     async #initializeDatabase() {
@@ -22,8 +65,8 @@ class LinksModel {
     async createLink(linkData) {
         try {
             if(!this.#localDB) await this.#initializeDatabase();
-
             const linkId = await this.#localDB.put('linkbookLinks', linkData);
+            this.#onLinkbookDataChanged(await this.compileLinkbookData());
             return {...linkData, id: linkId};
         } catch(err) {
             console.error(err);
@@ -67,6 +110,8 @@ class LinksModel {
 
             const data = await this.getLink(linkId);
             await this.#localDB.delete('linkbookLinks', linkId);
+
+            this.#onLinkbookDataChanged(await this.compileLinkbookData());
             return data;
         } catch(err) {
             console.error(err);
@@ -78,6 +123,8 @@ class LinksModel {
             if(!this.#localDB) await this.#initializeDatabase();
 
             const link = await this.getLink(linkId);
+
+            this.#onLinkbookDataChanged(await this.compileLinkbookData());
             return await this.editLink({...link, isPinned});
         } catch(err) {
             console.error(err);
@@ -89,6 +136,8 @@ class LinksModel {
             if(!this.#localDB) await this.#initializeDatabase();
 
             const groupId = await this.#localDB.put('linkbookGroups', groupData);
+
+            this.#onLinkbookDataChanged(await this.compileLinkbookData());
             return {...groupData, id: groupId};
         } catch(err) {
             console.error(err);
@@ -121,6 +170,7 @@ class LinksModel {
 
             // Later abstractions to the main database will require this
             await this.createGroup(groupData);
+
             return groupData;
         } catch(err) {
             console.error(err);
@@ -133,6 +183,8 @@ class LinksModel {
 
             const data = await this.getGroup(groupId);
             await this.#localDB.delete('linkbookGroups', groupId);
+
+            this.#onLinkbookDataChanged(await this.compileLinkbookData());
             return data;
         } catch(err) {
             console.error(err);
@@ -144,30 +196,9 @@ class LinksModel {
             if(!this.#localDB) await this.#initializeDatabase();
 
             const group = await this.getGroup(groupId);
+
+            this.#onLinkbookDataChanged(await this.compileLinkbookData());
             return await this.editGroup({...group, isPinned});
-        } catch(err) {
-            console.error(err);
-        }
-    }
-    
-    async addChildren(groupId, linkIds) {
-        try {
-            if(!this.#localDB) await this.#initializeDatabase();
-
-            const links = []; 
-            for(const id of linkIds) {
-                const link = await this.getLink(id);
-                links.push(link);
-            }
-            
-            // TODO: check for already existing children
-            if(links.some(link => link === undefined)) throw Error('The links specified do not exist!');
-
-            const group = await this.getGroup(groupId);
-            const newGroup = {...group, children: [...group.children, ...linkIds]};
-            this.editGroup(newGroup);
-
-            return newGroup;
         } catch(err) {
             console.error(err);
         }
@@ -296,29 +327,19 @@ class LinkbookView {
 
         const displayDetailsLinks = this.createElement('div', 'pinned-group__links');
 
-        const displayOptions = this.createElement('div', 'pinned-group__buttons');
-        const displayOptionsAddLinkButton = this.createElement('button', 'pinned-group__buttons-add-new-button');
-
         displayDetailsHeaderTitle.textContent = displayGroupData.name;
         displayDetailsHeaderOptionsMenuButton.innerHTML = '<svg class="options-button__icon" width="24" height="24" viewBox="0 0 24 24"><path d="M12 14C13.1046 14 14 13.1046 14 12C14 10.8954 13.1046 10 12 10C10.8954 10 10 10.8954 10 12C10 13.1046 10.8954 14 12 14Z"/><path d="M6 14C7.10457 14 8 13.1046 8 12C8 10.8954 7.10457 10 6 10C4.89543 10 4 10.8954 4 12C4 13.1046 4.89543 14 6 14Z"/><path d="M18 14C19.1046 14 20 13.1046 20 12C20 10.8954 19.1046 10 18 10C16.8954 10 16 10.8954 16 12C16 13.1046 16.8954 14 18 14Z"/></svg>';
-        displayOptionsAddLinkButton.innerHTML = `
-            <svg class="pinned-group__buttons-add-new-button-icon" width="16" height="17" viewBox="0 0 16 17">
-                <path d="M8.00002 3.16667C8.36822 3.16667 8.66669 3.46515 8.66669 3.83334V7.83334H12.6667C13.0349 7.83334 13.3334 8.13181 13.3334 8.50001C13.3334 8.86821 13.0349 9.16667 12.6667 9.16667H8.66669V13.1667C8.66669 13.5349 8.36822 13.8333 8.00002 13.8333C7.63182 13.8333 7.33335 13.5349 7.33335 13.1667V9.16667H3.33335C2.96517 9.16667 2.66669 8.86821 2.66669 8.50001C2.66669 8.13181 2.96517 7.83334 3.33335 7.83334H7.33335V3.83334C7.33335 3.46515 7.63182 3.16667 8.00002 3.16667Z">
-            </svg>
-            Add Link
-        `;
 
-        displayRoot.append(displayDetails, displayOptions);
+        displayRoot.append(displayDetails);
         displayDetails.append(displayDetailsHeader, displayDetailsLinks);
         displayDetailsHeader.append(displayDetailsHeaderTitle, displayDetailsHeaderOptions);
         displayDetailsHeaderOptions.append(displayDetailsHeaderOptionsMenuButton);
-
-        displayOptions.append(displayOptionsAddLinkButton);
 
         return displayRoot;
     }
 
     displayAllLinksCategory(elements) {
+        console.log('attempting to display...');
         while(this.#allLinksList.firstChild) {
             this.#allLinksList.removeChild(this.#allLinksList.lastChild);
         }
@@ -374,41 +395,57 @@ class LinkbookView {
             }
         }
     }
+
+    displayLinkEditForm() {
+    }
 }
 
-let app;
+class LinksController {
+    #model;
+    #view;
+
+    constructor(model, view) {
+        this.#model = model;
+        this.#view = view;
+
+        this.#model.bindLinkbookDataChanged(this.onLinkbookDataChanged.bind(this));
+
+        (async () => {
+            const data = await this.#model.compileLinkbookData();
+            this.onLinkbookDataChanged(data);
+        })();
+    }
+
+    onLinkbookDataChanged(data) {
+        const linksDisplay = {id: 0, type: 'group', name: 'Links', isPinned: 'true', children: []};
+        const restDisplay = [];
+        for(const element of data) {
+            if(element.type === 'link') {
+                if(!element.isPinned) continue;
+                linksDisplay.children.push(element);
+            } else {
+                if(element.isPinned) {
+                    restDisplay.push(element);
+                }
+
+                for(const child of element.children) {
+                    if(!child.isPinned) continue;
+                    linksDisplay.children.push(child);
+                }
+            }
+        }
+
+        const displayData = [];
+        if(linksDisplay.children.length !== 0) displayData.push(linksDisplay);
+        if(restDisplay.length !== 0) displayData.push(...restDisplay);
+
+        console.log('data changed: ', data, displayData);
+        this.#view.displayAllLinksCategory(data);
+        this.#view.displayPinnedLinksCategory(displayData);
+        this.#view.displayPinnedLinksDisplay(displayData);
+    }
+}
+
 addEventListener('DOMContentLoaded', _ => {
-    app = new LinkbookView();
-
-    const lilinks = [
-        {id: 1, type: 'link', name: 'lelement', link: 'pisskink.com', isPinned: true},
-        {id: 2, type: 'link', name: 'what?', link: 'dramaalert.com', isPinned: false},
-        {id: 3, type: 'link', name: 'aight', link: 'google.com', isPinned: false},
-        {id: 4, type: 'link', name: 'cool', link: 'google.com', isPinned: true},
-        {id: 1, type: 'group', name: 'woah', isPinned: true, children: [
-            {id: 8, type: 'link', name: 'aight', link: 'google.com', isPinned: true},
-            {id: 9, type: 'link', name: 'cool', link: 'google.com', isPinned: false},
-        ]},
-        {id: 1, type: 'group', name: 'not nowww mom', isPinned: false, children: [
-            {id: 8, type: 'link', name: 'minecraft', link: 'google.com', isPinned: true},
-            {id: 9, type: 'link', name: 'roblox', link: 'google.com', isPinned: false},
-        ]}
-    ];
-
-    const lelinks = [
-        {id: -1, type: 'group', name: 'Links', isPinned: true, children: [
-            {id: 1, type: 'link', name: 'lelement', link: 'pisskink.com', isPinned: true},
-            {id: 4, type: 'link', name: 'cool', link: 'google.com', isPinned: true},
-            {id: 8, type: 'link', name: 'aight', link: 'google.com', isPinned: true},
-            {id: 8, type: 'link', name: 'minecraft', link: 'google.com', isPinned: true},
-        ]},
-        {id: 1, type: 'group', name: 'woah', isPinned: true, children: [
-            {id: 8, type: 'link', name: 'aight', link: 'google.com', isPinned: true},
-            {id: 9, type: 'link', name: 'cool', link: 'google.com', isPinned: false},
-        ]},
-    ];
-
-    app.displayAllLinksCategory(lilinks);
-    app.displayPinnedLinksCategory(lelinks);
-    app.displayPinnedLinksDisplay(lelinks);
+    const app = new LinksController(new LinksModel(), new LinkbookView());
 })
