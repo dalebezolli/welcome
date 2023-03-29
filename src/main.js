@@ -22,10 +22,11 @@ class LinksModel {
 
         const groupChildren = new Map();
         for(const link of links) {
+            const typedLink = {...link, type: 'link'};
             if(!groupChildren.get(link.parent)) {
-                groupChildren.set(link.parent, [link]);
+                groupChildren.set(link.parent, [typedLink]);
             } else {
-                groupChildren.set(link.parent, [...groupChildren.get(link.parent), link]);
+                groupChildren.set(link.parent, [...groupChildren.get(link.parent), typedLink]);
             }
         }
 
@@ -40,7 +41,7 @@ class LinksModel {
             if(groupId === 0) {
                 parent = data;
             } else {
-                const group = {...await this.getGroup(groupId), children: []};
+                const group = {...await this.getGroup(groupId), type: 'group', children: []};
                 parent = group.children;
                 data.push(group);
             }
@@ -211,6 +212,7 @@ class LinkbookView {
     #pinnedLinksNewGroupButton;
     #pinnedLinksMoreButton;
     #pinnedLinksList;
+    #pinnedLinksDisplay;
 
     #allLinksCategory;
     #allLinksNewLinkButton;
@@ -218,7 +220,13 @@ class LinkbookView {
     #allLinksMoreButton;
     #allLinksList;
 
-    #pinnedLinksDisplay;
+    #linkDataForm;
+    #linkDataFormNameField;
+    #linkDataFormLinkField;
+    #linkDataFormSaveLinkButton;
+    #linkDataFormExitButton;
+
+    #onOpenLinkDataForm;
 
     constructor() {
         this.#pinnedLinksCategory = this.getElement('#linkbook-category-pinned-links');
@@ -234,6 +242,12 @@ class LinkbookView {
         this.#allLinksList = this.getElement('[data-id="linkbook-links-list"]', this.#allLinksCategory);
 
         this.#pinnedLinksDisplay = this.getElement('.pinned-groups');
+
+        this.#linkDataForm = this.getElement('.link-content-form');
+        this.#linkDataFormNameField = this.getElement('[name="link-form-name"]', this.#linkDataForm);
+        this.#linkDataFormLinkField = this.getElement('[name="link-form-link"]', this.#linkDataForm);
+        this.#linkDataFormSaveLinkButton = this.getElement('.link-form-buttons__submit', this.#linkDataForm);
+        this.#linkDataFormExitButton = this.getElement('.link-content-form__details-exit', this.#linkDataForm);
     }
 
     getElement(selector, parent) {
@@ -249,6 +263,44 @@ class LinkbookView {
         }
 
         return element;
+    }
+
+    bindOpenLinkDataForm(handler) {
+        this.#onOpenLinkDataForm = handler;
+        this.#pinnedLinksNewLinkButton.addEventListener('click', _ => this.#onOpenLinkDataForm(0, true));
+        this.#allLinksNewLinkButton.addEventListener('click', _ => this.#onOpenLinkDataForm(0, false));
+    }
+
+    bindCloseLinkDataForm(handler) {
+        const cleanupForm = () => {
+            this.#linkDataFormNameField.value = '';
+            this.#linkDataFormLinkField.value = '';
+            handler();
+        }
+
+        this.#linkDataForm.addEventListener('click', event => {
+            if(event.currentTarget !== event.target) return
+            cleanupForm();
+        });
+
+        this.#linkDataFormExitButton.addEventListener('click', event => {
+            event.preventDefault();
+            cleanupForm();
+        });
+    }
+
+    bindSaveLinkDataForm(handler) {
+        this.#linkDataFormSaveLinkButton.addEventListener('click', event => {
+            event.preventDefault();
+
+            // TODO: check for input fields to not be empty and for link to be a correct url
+            const data = {
+                name: this.#linkDataFormNameField.value,
+                link: this.#linkDataFormLinkField.value
+            };
+
+            handler(data);
+        });
     }
 
     #createLinkDisplay(linkData) {
@@ -270,7 +322,7 @@ class LinkbookView {
         return linkRoot;
     }
 
-    #createGroupDisplay(groupData) {
+    #createGroupDisplay(groupData, isPinned) {
         const groupRoot = this.createElement('div', 'linkbook-browser-links-group');
         const groupHeader = this.createElement('div', 'linkbook-browser-links-group__header');
         const groupHeaderDetails = this.createElement('button', 'linkbook-browser-links-group__header-details');
@@ -293,6 +345,8 @@ class LinkbookView {
         groupRoot.append(groupHeader, groupLinkList);
         groupHeader.append(groupHeaderDetails, groupHeaderOptions);
         groupHeaderOptions.append(groupHeaderOptionAddLinkButton, groupHeaderOptionOptionsMenuButton);
+
+        groupHeaderOptionAddLinkButton.addEventListener('click', _ => this.#onOpenLinkDataForm(groupData.id, (groupData.id !== 0 ? false : isPinned)));
 
         return groupRoot;
     }
@@ -349,7 +403,7 @@ class LinkbookView {
                 const linkDisplay = this.#createLinkDisplay(element);
                 this.#allLinksList.append(linkDisplay);
             } else {
-                const groupDisplay = this.#createGroupDisplay(element);
+                const groupDisplay = this.#createGroupDisplay(element, false);
                 this.#allLinksList.append(groupDisplay);
 
                 const groupList = this.getElement('.linkbook-browser-links-group__links', groupDisplay);
@@ -367,7 +421,7 @@ class LinkbookView {
         }
 
         for(const element of elements) {
-            const groupDisplay = this.#createGroupDisplay(element);
+            const groupDisplay = this.#createGroupDisplay(element, true);
             this.#pinnedLinksList.append(groupDisplay);
 
             const groupList = this.getElement('.linkbook-browser-links-group__links', groupDisplay);
@@ -396,7 +450,12 @@ class LinkbookView {
         }
     }
 
-    displayLinkEditForm() {
+    openLinkDataForm() {
+        this.#linkDataForm.classList.remove('link-content-form--disabled');  
+    }
+
+    closeLinkDataForm() {
+        this.#linkDataForm.classList.add('link-content-form--disabled');  
     }
 }
 
@@ -404,19 +463,24 @@ class LinksController {
     #model;
     #view;
 
+    #newLinkData;
+
     constructor(model, view) {
         this.#model = model;
         this.#view = view;
 
-        this.#model.bindLinkbookDataChanged(this.onLinkbookDataChanged.bind(this));
+        this.#model.bindLinkbookDataChanged(this.#onLinkbookDataChanged.bind(this));
+        this.#view.bindOpenLinkDataForm(this.#onOpenLinkDataForm.bind(this));
+        this.#view.bindCloseLinkDataForm(this.#onCloseLinkDataForm.bind(this));
+        this.#view.bindSaveLinkDataForm(this.#onSaveLinkDataForm.bind(this));
 
         (async () => {
             const data = await this.#model.compileLinkbookData();
-            this.onLinkbookDataChanged(data);
+            this.#onLinkbookDataChanged(data);
         })();
     }
 
-    onLinkbookDataChanged(data) {
+    #onLinkbookDataChanged(data) {
         const linksDisplay = {id: 0, type: 'group', name: 'Links', isPinned: 'true', children: []};
         const restDisplay = [];
         for(const element of data) {
@@ -443,6 +507,22 @@ class LinksController {
         this.#view.displayAllLinksCategory(data);
         this.#view.displayPinnedLinksCategory(displayData);
         this.#view.displayPinnedLinksDisplay(displayData);
+    }
+    
+    #onOpenLinkDataForm(parentId, isPinned) {
+        this.#newLinkData = {parent: parentId, isPinned};
+        this.#view.openLinkDataForm();
+    }
+
+    #onCloseLinkDataForm() {
+        this.#newLinkData = null;
+        this.#view.closeLinkDataForm();
+    }
+
+    #onSaveLinkDataForm(formData) {
+        const linkData = {...formData, ...this.#newLinkData};
+        this.#onCloseLinkDataForm();
+        this.#model.createLink(linkData);
     }
 }
 
