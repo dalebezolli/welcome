@@ -445,7 +445,10 @@ class LinkbookView {
 
         groupRoot.append(groupHeader, groupLinkList);
         groupHeader.append(groupHeaderDetails, groupHeaderOptions);
-        groupHeaderOptions.append(groupHeaderOptionAddLinkButton, groupHeaderOptionOptionsMenuButton);
+        groupHeaderOptions.append(groupHeaderOptionAddLinkButton);
+        if(groupData.id !== 0) {
+            groupHeaderOptions.append(groupHeaderOptionOptionsMenuButton);
+        }
 
         groupHeaderOptionAddLinkButton.addEventListener('click', _ => this.#onOpenLinkDataForm(groupData.id, (groupData.id !== 0 ? false : isPinned)));
 
