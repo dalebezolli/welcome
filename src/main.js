@@ -249,6 +249,7 @@ class LinkbookView {
 
     #onOpenLinkDataForm;
     #onOpenOptionsMenu;
+    #onGroupEditSave;
 
     constructor() {
         this.#app = this.getElement('.content');
@@ -302,6 +303,11 @@ class LinkbookView {
         this.#allLinksNewLinkButton.addEventListener('click', _ => this.#onOpenLinkDataForm(0, false));
     }
 
+    bindCreateGroup(handler) {
+        this.#pinnedLinksNewGroupButton.addEventListener('click', _ => handler(true));
+        this.#allLinksNewGroupButton.addEventListener('click', _ => handler(false));
+    }
+
     bindCloseLinkDataForm(handler) {
         const cleanupForm = () => {
             this.#linkDataFormNameField.value = '';
@@ -329,9 +335,17 @@ class LinkbookView {
                 name: this.#linkDataFormNameField.value,
                 link: this.#linkDataFormLinkField.value
             };
+            if(this.#linkDataForm.getAttribute('data-id')) {
+                data.id = parseInt(this.#linkDataForm.getAttribute('data-id'));
+                this.#linkDataForm.removeAttribute('data-id');
+            }
 
             handler(data);
         });
+    }
+
+    bindGroupEditSave(handler) {
+        this.#onGroupEditSave = handler;
     }
 
     bindOpenOptionsMenu(handler) {
@@ -380,6 +394,8 @@ class LinkbookView {
         linkNameText.textContent = linkData.name;
         linkOptionMenuButton.innerHTML = '<svg class="options-button__icon options-button__icon--secondary" width="24" height="24" viewBox="0 0 24 24"><path d="M12 14C13.1046 14 14 13.1046 14 12C14 10.8954 13.1046 10 12 10C10.8954 10 10 10.8954 10 12C10 13.1046 10.8954 14 12 14Z"/><path d="M6 14C7.10457 14 8 13.1046 8 12C8 10.8954 7.10457 10 6 10C4.89543 10 4 10.8954 4 12C4 13.1046 4.89543 14 6 14Z"/><path d="M18 14C19.1046 14 20 13.1046 20 12C20 10.8954 19.1046 10 18 10C16.8954 10 16 10.8954 16 12C16 13.1046 16.8954 14 18 14Z"/></svg>';
 
+        linkRoot.setAttribute('data-id', `${linkData.id}-${linkData.type}`);
+
         linkRoot.append(linkDetails, linkOptions);
         linkDetails.append(linkImg, linkNameText);
         linkOptions.append(linkOptionMenuButton);
@@ -411,6 +427,8 @@ class LinkbookView {
         groupHeaderOptionAddLinkButton.innerHTML = '<svg class="new-link-button__icon new-link-button__icon--secondary" width="16" height="13" viewBox="0 0 16 13"><path d="M14.07 6.7925C15.4825 5.38 15.4825 3.0925 14.07 1.68C12.82 0.430004 10.85 0.267504 9.4125 1.295L9.3725 1.3225C9.0125 1.58 8.93 2.08 9.1875 2.4375C9.445 2.795 9.945 2.88 10.3025 2.6225L10.3425 2.595C11.145 2.0225 12.2425 2.1125 12.9375 2.81C13.725 3.5975 13.725 4.8725 12.9375 5.66L10.1325 8.47C9.345 9.2575 8.07 9.2575 7.2825 8.47C6.585 7.7725 6.495 6.675 7.0675 5.875L7.095 5.835C7.3525 5.475 7.2675 4.975 6.91 4.72C6.5525 4.465 6.05001 4.5475 5.79501 4.905L5.7675 4.945C4.7375 6.38 4.90001 8.35 6.15001 9.6C7.56251 11.0125 9.85 11.0125 11.2625 9.6L14.07 6.7925ZM1.08 6.2075C-0.332495 7.62 -0.332495 9.9075 1.08 11.32C2.33 12.57 4.30001 12.7325 5.73751 11.705L5.77751 11.6775C6.13751 11.42 6.22001 10.92 5.96251 10.5625C5.70501 10.205 5.205 10.12 4.8475 10.3775L4.80751 10.405C4.00501 10.9775 2.9075 10.8875 2.2125 10.19C1.425 9.4 1.425 8.125 2.2125 7.3375L5.0175 4.53C5.805 3.7425 7.08 3.7425 7.8675 4.53C8.56501 5.2275 8.655 6.325 8.0825 7.1275L8.05501 7.1675C7.7975 7.5275 7.8825 8.0275 8.24 8.2825C8.5975 8.5375 9.10001 8.455 9.35501 8.0975L9.3825 8.0575C10.4125 6.62 10.25 4.65 9 3.4C7.5875 1.9875 5.30001 1.9875 3.88751 3.4L1.08 6.2075Z" /></svg>';
         groupHeaderOptionOptionsMenuButton.innerHTML = '<svg class="options-button__icon options-button__icon--secondary" width="24" height="24" viewBox="0 0 24 24"><path d="M12 14C13.1046 14 14 13.1046 14 12C14 10.8954 13.1046 10 12 10C10.8954 10 10 10.8954 10 12C10 13.1046 10.8954 14 12 14Z"/><path d="M6 14C7.10457 14 8 13.1046 8 12C8 10.8954 7.10457 10 6 10C4.89543 10 4 10.8954 4 12C4 13.1046 4.89543 14 6 14Z"/><path d="M18 14C19.1046 14 20 13.1046 20 12C20 10.8954 19.1046 10 18 10C16.8954 10 16 10.8954 16 12C16 13.1046 16.8954 14 18 14Z"/></svg>';
 
+        groupRoot.setAttribute('data-id', `${groupData.id}-${groupData.type}-${isPinned ? 'pinned' : 'all' }`);
+
         groupRoot.append(groupHeader, groupLinkList);
         groupHeader.append(groupHeaderDetails, groupHeaderOptions);
         groupHeaderOptions.append(groupHeaderOptionAddLinkButton, groupHeaderOptionOptionsMenuButton);
@@ -422,6 +440,29 @@ class LinkbookView {
         });
 
         return groupRoot;
+    }
+
+    editGroup(groupId, location) {
+        console.log(location);
+        const groupRoot = this.getElement(`[data-id="${groupId}-group-${location}"]`);       
+        const groupHeaderDetailsName = this.getElement('.linkbook-browser-links-group__header-title', groupRoot);
+        const groupHeaderOptions = this.getElement('.linkbook-browser-links-group__header-options', groupRoot);
+
+        while(groupHeaderOptions.firstChild) {
+            groupHeaderOptions.removeChild(groupHeaderOptions.lastChild);
+        }
+
+        const groupHeaderDetailsInput = this.createElement('input', 'linkbook-browser-links-group__header-input');
+        groupHeaderDetailsInput.setAttribute('type', 'text');
+        groupHeaderDetailsName.replaceWith(groupHeaderDetailsInput);
+
+        groupHeaderDetailsInput.addEventListener('keypress', event => {
+            if(event.key === 'Enter' && groupHeaderDetailsInput.value.length !== 0) {
+                this.#onGroupEditSave(groupId, groupHeaderDetailsInput.value);
+            }
+        });
+
+        groupHeaderDetailsInput.focus();
     }
 
     #createDisplayLinkDisplay(displayLinkData) {
@@ -466,7 +507,6 @@ class LinkbookView {
     }
 
     displayAllLinksCategory(elements) {
-        console.log('attempting to display...');
         while(this.#allLinksList.firstChild) {
             this.#allLinksList.removeChild(this.#allLinksList.lastChild);
         }
@@ -523,7 +563,13 @@ class LinkbookView {
         }
     }
 
-    openLinkDataForm() {
+    openLinkDataForm(editData) {
+        if(editData) {
+            this.#linkDataFormNameField.value = editData.name;
+            this.#linkDataFormLinkField.value = editData.link;
+            this.#linkDataForm.setAttribute('data-id', editData.id);
+        }
+
         this.#linkDataForm.classList.remove('link-content-form--disabled');  
     }
 
@@ -587,9 +633,11 @@ class LinksController {
         this.#view.bindOpenLinkDataForm(this.#onOpenLinkDataForm.bind(this));
         this.#view.bindCloseLinkDataForm(this.#onCloseLinkDataForm.bind(this));
         this.#view.bindSaveLinkDataForm(this.#onSaveLinkDataForm.bind(this));
+        this.#view.bindCreateGroup(this.#onCreateGroup.bind(this));
+        this.#view.bindGroupEditSave(this.#onGroupEditSave.bind(this));
+
         this.#view.bindOpenOptionsMenu(this.#onOpenOptionsMenu.bind(this));
         this.#view.bindCloseOptionsMenu(this.#onCloseOptionsMenu.bind(this));
-
         this.#view.bindOptionsMenuPin(this.#onOptionsMenuPin.bind(this));
         this.#view.bindOptionsMenuUnpin(this.#onOptionsMenuUnpin.bind(this));
         this.#view.bindOptionsMenuEdit(this.#onOptionsMenuEdit.bind(this));
@@ -624,7 +672,6 @@ class LinksController {
         if(linksDisplay.children.length !== 0) displayData.push(linksDisplay);
         if(restDisplay.length !== 0) displayData.push(...restDisplay);
 
-        console.log('data changed: ', data, displayData);
         this.#view.displayAllLinksCategory(data);
         this.#view.displayPinnedLinksCategory(displayData);
         this.#view.displayPinnedLinksDisplay(displayData);
@@ -632,7 +679,7 @@ class LinksController {
     
     #onOpenLinkDataForm(parentId, isPinned) {
         this.#newLinkData = {parent: parentId, isPinned};
-        this.#view.openLinkDataForm();
+        this.#view.openLinkDataForm(null);
     }
 
     #onCloseLinkDataForm() {
@@ -641,9 +688,26 @@ class LinksController {
     }
 
     #onSaveLinkDataForm(formData) {
-        const linkData = {...formData, ...this.#newLinkData};
+        if(!formData.id) {
+            const linkData = {...formData, ...this.#newLinkData};
+            this.#model.createLink(linkData);
+        } else {
+            this.#model.getLink(formData.id)
+                .then(link => this.#model.editLink({...link, name: formData.name, link: formData.link}));
+        }
         this.#onCloseLinkDataForm();
-        this.#model.createLink(linkData);
+    }
+
+    #onCreateGroup(isPinned) {
+        console.error(isPinned);
+        this.#model.createGroup({name: '', isPinned: isPinned})
+            .then(group => this.#view.editGroup(group.id, isPinned ? 'pinned' : 'all'))
+    }
+
+    #onGroupEditSave(groupId, groupName) {
+        this.#model.getGroup(groupId).then(group => {
+            this.#model.editGroup({...group, name: groupName});
+        });
     }
 
     #onOpenOptionsMenu(element, elementType, elementId, isElementPinned, options) {
@@ -671,7 +735,13 @@ class LinksController {
     }
 
     #onOptionsMenuEdit() {
-        console.log('edit: ', this.#moreOptionsState);
+        if(this.#moreOptionsState.type === 'link') {
+            this.#model.getLink(this.#moreOptionsState.id)
+                .then(link => this.#view.openLinkDataForm(link));
+            
+        } else {
+            this.#view.editGroup(this.#moreOptionsState.id, this.#moreOptionsState.isPinned ? 'pinned' : 'all');
+        }
     }
     #onOptionsMenuDelete() {
         if(this.#moreOptionsState.type === 'link') {
@@ -697,7 +767,8 @@ class LinksController {
 }
 
 let model;
+let app;
 addEventListener('DOMContentLoaded', _ => {
     model = new LinksModel()
-    const app = new LinksController(model, new LinkbookView());
+    app = new LinksController(model, new LinkbookView());
 })
