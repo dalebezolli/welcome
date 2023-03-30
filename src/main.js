@@ -9,7 +9,7 @@ class LinksModel {
 
     constructor() {
         this.#databaseName = 'Primary';
-        this.#databaseVersion = '1'
+        this.#databaseVersion = '2';
     }
     
     bindLinkbookDataChanged(callback) {
@@ -57,7 +57,8 @@ class LinksModel {
     async #initializeDatabase() {
         this.#localDB = await idb.openDB(this.#databaseName, this.#databaseVersion, {
             upgrade(db) {
-                db.createObjectStore('linkbookLinks', {keyPath: 'id', autoIncrement: true});
+                const links = db.createObjectStore('linkbookLinks', {keyPath: 'id', autoIncrement: true});
+                links.createIndex('parent', 'parent');
                 db.createObjectStore('linkbookGroups', {keyPath: 'id', autoIncrement: true});
             }
         });
@@ -165,6 +166,16 @@ class LinksModel {
         }
     }
 
+    async getGroupChildren(groupId) {
+        try {
+            if(!this.#localDB) await this.#initializeDatabase();
+
+            return await this.#localDB.getAllFromIndex('linkbookLinks', 'parent', groupId);
+        } catch(err) {
+            console.error(err);
+        }
+    }
+
     async editGroup(groupData) {
         try {
             if(!this.#localDB) await this.#initializeDatabase();
@@ -231,6 +242,11 @@ class LinkbookView {
     #optionsMenuEdit;
     #optionsMenuDelete;
 
+    #alertbox;
+    #alertboxPrompt;
+    #alertboxYesButton;
+    #alertboxNoButton;
+
     #onOpenLinkDataForm;
     #onOpenOptionsMenu;
 
@@ -258,6 +274,11 @@ class LinkbookView {
         this.#optionsMenuUnPin = this.getElement('#link-options-menu-unpin', this.#optionsMenu);
         this.#optionsMenuEdit = this.getElement('#link-options-menu-edit', this.#optionsMenu);
         this.#optionsMenuDelete = this.getElement('#link-options-menu-delete', this.#optionsMenu);
+
+        this.#alertbox = this.getElement('.alertbox');
+        this.#alertboxPrompt = this.getElement('.alertbox__text');
+        this.#alertboxYesButton = this.getElement('.alertbox__button--yes');
+        this.#alertboxNoButton = this.getElement('.alertbox__button--no');
     }
 
     getElement(selector, parent) {
@@ -318,12 +339,33 @@ class LinkbookView {
     }
 
     bindCloseOptionsMenu(handler) {
+        this.#optionsMenuPin.onclick = null;
+        this.#optionsMenuUnPin.onclick = null;
+        this.#optionsMenuEdit.onclick = null;
+        this.#optionsMenuDelete.onclick = null;
+
         this.#app.addEventListener('click', event => {
             if(event.target.classList.contains('options-button__icon')) {
                 return;
             }
             handler();
         });
+    }
+
+    bindOptionsMenuPin(handler) {
+       this.#optionsMenuPin.onclick = handler; 
+    }
+
+    bindOptionsMenuUnpin(handler) {
+        this.#optionsMenuUnPin.onclick = handler;
+    }
+
+    bindOptionsMenuEdit(handler) {
+        this.#optionsMenuEdit.onclick = handler;
+    }
+
+    bindOptionsMenuDelete(handler) {
+        this.#optionsMenuDelete.onclick = handler;
     }
 
     #createLinkDisplay(linkData, isPinned) {
@@ -508,6 +550,25 @@ class LinkbookView {
     closeOptionsMenu() {
         this.#optionsMenu.classList.add('link-options-menu--disabled');
     }
+
+    openAlertbox(prompt, yesHandler, noHandler) {
+        this.#alertbox.classList.remove('alertbox--hidden');
+        this.#alertboxPrompt.textContent = prompt;
+
+        this.#alertboxYesButton.onclick = _ => {
+            if(yesHandler) yesHandler();
+            this.closeAlertbox()
+        }
+        this.#alertboxNoButton.onclick = _ => {
+            if(noHandler) noHandler();
+            this.closeAlertbox();
+        };
+    }
+
+    closeAlertbox() {
+        this.#alertbox.classList.add('alertbox--hidden');
+        this.#alertboxPrompt.textContent = '';
+    }
 }
 
 class LinksController {
@@ -528,6 +589,11 @@ class LinksController {
         this.#view.bindSaveLinkDataForm(this.#onSaveLinkDataForm.bind(this));
         this.#view.bindOpenOptionsMenu(this.#onOpenOptionsMenu.bind(this));
         this.#view.bindCloseOptionsMenu(this.#onCloseOptionsMenu.bind(this));
+
+        this.#view.bindOptionsMenuPin(this.#onOptionsMenuPin.bind(this));
+        this.#view.bindOptionsMenuUnpin(this.#onOptionsMenuUnpin.bind(this));
+        this.#view.bindOptionsMenuEdit(this.#onOptionsMenuEdit.bind(this));
+        this.#view.bindOptionsMenuDelete(this.#onOptionsMenuDelete.bind(this));
 
         (async () => {
             const data = await this.#model.compileLinkbookData();
@@ -589,8 +655,49 @@ class LinksController {
     #onCloseOptionsMenu() {
         this.#view.closeOptionsMenu();
     }
+
+    #onOptionsMenuPin() {
+        if(this.#moreOptionsState.type === 'link')
+            this.#model.setLinkPin(this.#moreOptionsState.id, true);
+        else
+            this.#model.setGroupPin(this.#moreOptionsState.id, true);
+    }
+
+    #onOptionsMenuUnpin() {
+        if(this.#moreOptionsState.type === 'link')
+            this.#model.setLinkPin(this.#moreOptionsState.id, false);
+        else
+            this.#model.setGroupPin(this.#moreOptionsState.id, false);
+    }
+
+    #onOptionsMenuEdit() {
+        console.log('edit: ', this.#moreOptionsState);
+    }
+    #onOptionsMenuDelete() {
+        if(this.#moreOptionsState.type === 'link') {
+            this.#model.deleteLink(this.#moreOptionsState.id);
+        } else {
+            this.#model.getGroupChildren(this.#moreOptionsState.id).then(children => {
+                if(children.length === 0) {
+                        this.#model.deleteGroup(this.#moreOptionsState.id);
+                } else {
+                    this.#view.openAlertbox(
+                        'This action will delete the group and all of it\'s children. Continue?',
+                        _ => {
+                            for(const child of children) {
+                                this.#model.deleteLink(child.id);
+                            }
+                            this.#model.deleteGroup(this.#moreOptionsState.id);
+                        }
+                    );
+                }
+            })
+        }
+    }
 }
 
+let model;
 addEventListener('DOMContentLoaded', _ => {
-    const app = new LinksController(new LinksModel(), new LinkbookView());
+    model = new LinksModel()
+    const app = new LinksController(model, new LinkbookView());
 })
