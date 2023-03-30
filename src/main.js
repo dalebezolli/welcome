@@ -404,6 +404,20 @@ class LinkbookView {
             this.#onOpenOptionsMenu(linkRoot, linkData.type, linkData.id, isPinned, {pin: !isPinned, unpin: isPinned && linkData.parent === 0, edit: true, delete: true});
         });
 
+        linkRoot.addEventListener('click', event => {
+            if(
+                event.target.classList.contains('options-button__icon') ||
+                event.target.classList.contains('button--small')
+            ) return;
+            const url = linkData.link.startsWith('http') ? linkData.link : `https://${linkData.link}`;
+
+            if(event.ctrlKey) {
+                location.assign(url);
+            } else {
+                open(url);
+            }
+        });
+
         return linkRoot;
     }
 
@@ -481,6 +495,20 @@ class LinkbookView {
         displayRoot.append(displayDetails, displayOptions);
         displayDetails.append(displayDetailsIcon, displayDetailsName);
         displayOptions.append(displayOptionsMenuButton);
+
+        displayRoot.addEventListener('click', event => {
+            if(
+                event.target.classList.contains('options-button__icon') ||
+                event.target.classList.contains('button--small')
+            ) return;
+            const url = displayLinkData.link.startsWith('http') ? displayLinkData.link : `https://${displayLinkData.link}`;
+
+            if(event.ctrlKey) {
+                location.assign(url);
+            } else {
+                open(url);
+            }
+        });
 
         return displayRoot;
     }
