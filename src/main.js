@@ -441,7 +441,7 @@ class LinkbookView {
 
         linkOptionMenuButton.addEventListener('click', _ => {
             this.#onOpenOptionsMenu(linkRoot, linkData.type, linkData.id, isPinned, {pin: !isPinned, unpin: isPinned && linkData.parent === 0, edit: true, delete: true});
-        });
+        }, {capture: true});
 
         linkRoot.addEventListener('click', event => {
             if(
@@ -649,7 +649,7 @@ class LinkbookView {
     closeLinkDataForm() {
         this.getElement('[data-open-type="create"]', this.#linkDataForm).classList.add('link-content-form__details-title--hidden');
         this.getElement('[data-open-type="edit"]', this.#linkDataForm).classList.add('link-content-form__details-title--hidden');
-        this.#linkDataForm.classList.add('link-content-form--disabled');  
+        this.#linkDataForm.classList.add('link-content-form--disabled');
     }
 
     openOptionsMenu(position, options) {
@@ -719,6 +719,11 @@ class LinksController {
         this.#view.bindOptionsMenuDelete(this.#onOptionsMenuDelete.bind(this));
 
         (async () => {
+            const groups = await this.#model.getGroups();
+            for(const group of groups) {
+                if(group.name.length !== 0) continue;
+                this.#model.deleteGroup(group.id);
+            }
             const data = await this.#model.compileLinkbookData();
             this.#onLinkbookDataChanged(data);
         })();
