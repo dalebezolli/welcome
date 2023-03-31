@@ -43,6 +43,7 @@ p, h1, h2, h3, h4, h5, h6 {
 	--color-netural-900-80: hsla(255, 11%, 7%, .8);
 
 	--color-red-400: hsl(2, 81%, 44%);
+    --color-red-800: hsla(4, 68%, 10%, .6);
     --color-green-200: hsl(141, 64%, 54%);
 	--color-green-400: hsl(141, 64%, 38%);
 
@@ -754,6 +755,24 @@ body {
 
     background-color: var(--color-netural-900);
     border: 1px solid var(--color-netural-700);
+    border-radius: var(--border-radius);
+}
+
+.link-form-input__form[aria-invalid="true"] {
+    border-color: var(--color-red-400);
+}
+
+.link-form-input__form[aria-invalid="false"] ~ .link-form-input__error {
+    display: none;
+}
+
+.link-form-input__form[aria-invalid="true"] ~ .link-form-input__error {
+    padding: 4px 8px;
+
+    font-size: .875rem;
+    color: var(--color-red-400);
+
+    background-color: var(--color-red-800);
     border-radius: var(--border-radius);
 }
 

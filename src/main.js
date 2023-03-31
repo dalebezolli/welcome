@@ -231,8 +231,11 @@ class LinkbookView {
     #allLinksList;
 
     #linkDataForm;
+    #linkDataDetails;
     #linkDataFormNameField;
+    #linkDataFormNameError;
     #linkDataFormLinkField;
+    #linkDataFormLinkError;
     #linkDataFormSaveLinkButton;
     #linkDataFormExitButton;
 
@@ -265,8 +268,11 @@ class LinkbookView {
         this.#allLinksList = this.getElement('[data-id="linkbook-links-list"]', this.#allLinksCategory);
 
         this.#linkDataForm = this.getElement('.link-content-form');
+        this.#linkDataDetails = this.getElement('.link-content-form__details', this.#linkDataForm);
         this.#linkDataFormNameField = this.getElement('[name="link-form-name"]', this.#linkDataForm);
+        this.#linkDataFormNameError = this.getElement('#link-form-name-error');
         this.#linkDataFormLinkField = this.getElement('[name="link-form-link"]', this.#linkDataForm);
+        this.#linkDataFormLinkError = this.getElement('#link-form-link-error');
         this.#linkDataFormSaveLinkButton = this.getElement('.link-form-buttons__submit', this.#linkDataForm);
         this.#linkDataFormExitButton = this.getElement('.link-content-form__details-exit', this.#linkDataForm);
         
@@ -329,8 +335,8 @@ class LinkbookView {
     bindSaveLinkDataForm(handler) {
         this.#linkDataFormSaveLinkButton.addEventListener('click', event => {
             event.preventDefault();
+            if(!this.#linkDataDetails.checkValidity()) return;
 
-            // TODO: check for input fields to not be empty and for link to be a correct url
             const data = {
                 name: this.#linkDataFormNameField.value,
                 link: this.#linkDataFormLinkField.value
@@ -342,6 +348,39 @@ class LinkbookView {
 
             handler(data);
         });
+
+        this.#linkDataFormNameField.setAttribute('aria-invalid', 'false');
+        this.#linkDataFormNameField.addEventListener('invalid', event => {
+            invalidate(event);
+        });
+
+        this.#linkDataFormNameField.addEventListener('input', event => {
+            this.#linkDataFormNameField.setAttribute('aria-invalid', 'false');
+        });
+
+        this.#linkDataFormLinkField.setAttribute('aria-invalid', 'false');
+        this.#linkDataFormLinkField.addEventListener('invalid', event => {
+            invalidate(event);
+        });
+
+        this.#linkDataFormLinkField.addEventListener('input', event => {
+            this.#linkDataFormLinkField.setAttribute('aria-invalid', 'false');
+        });
+        
+        const invalidate = event => {
+            switch(event.target.name) {
+                case 'link-form-name':
+                    this.#linkDataFormNameField.setAttribute('aria-invalid', 'true');
+                    this.#linkDataFormNameError.textContent = event.target.validationMessage;
+                    break;
+                case 'link-form-link':
+                    this.#linkDataFormLinkField.setAttribute('aria-invalid', 'true');
+                    this.#linkDataFormLinkError.textContent = event.target.validationMessage;
+                    break;
+                default:
+                    console.error('This element doesn\'t have an error box');
+            }
+        };
     }
 
     bindGroupEditSave(handler) {
