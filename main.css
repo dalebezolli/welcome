@@ -704,6 +704,10 @@ body {
     font-size: 1.5rem;
 }
 
+.link-content-form__details-title--hidden {
+    display: none;
+}
+
 .link-content-form__details-exit {
     display: flex;
     width: 32px;

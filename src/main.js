@@ -635,15 +635,20 @@ class LinkbookView {
 
     openLinkDataForm(editData) {
         if(editData) {
+            this.getElement('[data-open-type="edit"]', this.#linkDataForm).classList.remove('link-content-form__details-title--hidden');
             this.#linkDataFormNameField.value = editData.name;
             this.#linkDataFormLinkField.value = editData.link;
             this.#linkDataForm.setAttribute('data-id', editData.id);
+        } else {
+            this.getElement('[data-open-type="create"]', this.#linkDataForm).classList.remove('link-content-form__details-title--hidden');
         }
 
         this.#linkDataForm.classList.remove('link-content-form--disabled');  
     }
 
     closeLinkDataForm() {
+        this.getElement('[data-open-type="create"]', this.#linkDataForm).classList.add('link-content-form__details-title--hidden');
+        this.getElement('[data-open-type="edit"]', this.#linkDataForm).classList.add('link-content-form__details-title--hidden');
         this.#linkDataForm.classList.add('link-content-form--disabled');  
     }
 
