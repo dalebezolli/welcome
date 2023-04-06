@@ -64,165 +64,327 @@ class LinksModel {
         });
     }
 
-    async createLink(linkData) {
+    async createLink(name, link, parent, isPinned) {
+        if(!this.#localDB) await this.#initializeDatabase();
+        let linkId;
+        let linkData;
+
         try {
-            if(!this.#localDB) await this.#initializeDatabase();
-            const linkId = await this.#localDB.put('linkbookLinks', linkData);
-            this.#onLinkbookDataChanged(await this.compileLinkbookData());
-            return {...linkData, id: linkId};
+            if(!name) {
+                throw new SystemError('Create link called with unspecified name!');
+            }
+
+            if(!link) {
+                throw new SystemError('Create link called with unspecified link!');
+            }
+
+            if(typeof name !== 'string') {
+                throw new SystemError('Create link called with non string name!');
+            }
+
+            if(typeof link !== 'string') {
+                throw new SystemError('Create link called with non string link!');
+            }
+            
+            if(name.trim().length === 0) {
+                throw new UserError('Try again by specifying a name for your link shortcut!');
+            }
+
+            if(link.trim().length === 0) {
+                throw new UserError('Try again by specifying a link for your link shortcut!');
+            }
         } catch(err) {
-            console.error(err);
+            handleError(err);
+            return null;
         }
+
+        if(!parent || typeof parent !== 'number' || parent < 0) {
+            parent = 0;
+        }
+
+        if(!isPinned || typeof isPinned !== 'boolean') {
+            isPinned = false;
+        }
+
+        linkData = {name, link, parent, isPinned};
+
+        try {
+            linkId = await this.#localDB.put('linkbookLinks', linkData);
+        } catch (err) {
+            const linkSaveError = new SystemError(err);
+            handleError(linkSaveError);
+            return null;
+        }
+
+        this.#onLinkbookDataChanged(await this.compileLinkbookData());
+        return {id: linkId, ...linkData};
     }
 
     async getLink(linkId) {
+        if(!this.#localDB) await this.#initializeDatabase();
+        let data;
+
         try {
-            if(!this.#localDB) await this.#initializeDatabase();
-            return await this.#localDB.get('linkbookLinks', linkId);
+            data = await this.#localDB.get('linkbookLinks', linkId);
+            if(!data) data = null;
         } catch(err) {
-            console.error(err);
+            const getLinkError = new SystemError(err);
+            handleError(getLinkError);
+            data = null;
         }
+
+        return data;
     }
 
     async getLinks() {
+        if(!this.#localDB) await this.#initializeDatabase();
+        let links;
+        
         try {
-            if(!this.#localDB) await this.#initializeDatabase();
-
-            return await this.#localDB.getAll('linkbookLinks');
+            links = await this.#localDB.getAll('linkbookLinks');
         } catch(err) {
-            console.error(err);
+            const getLinksError = new SystemError(err);
+            handleError(getLinksError);
+            links = [];
         }
+
+        return links;
     }
 
-    async editLink(linkId, newName, newLink) {
-        try {
-            if(!this.#localDB) await this.#initializeDatabase();
+    async editLinkNameAndLink(linkId, newName, newLink) {
+        if(!this.#localDB) await this.#initializeDatabase();
 
-            const oldLinkData = await this.getLink(linkId);
-            const newLinkData = {...oldLinkData, name: newName, link: newLink};
-            await this.#localDB.put('linkbookLinks', newLinkData);
-            
-            this.#onLinkbookDataChanged(await this.compileLinkbookData());
-            return newLinkData;
-        } catch(err) {
-            console.error(err);
+        const oldLinkData = await this.getLink(linkId);
+        if(!oldLinkData) {
+            nullDataError = new SystemError('Unable to edit link as it might have been deleted!');
+            handleError(nullDataError);
+            return null;
         }
+        let newLinkData;
+
+        try {
+            if(!newName || !newLink) {
+                throw new SystemError('Edit link called with unspecified newName or newLink!');
+            }
+
+            if(typeof newName !== 'string' || typeof newLink !== 'string') {
+                throw new SystemError('Edit link called with non string newName or newLink!');
+            } 
+        } catch(err) {
+            handleError(err);
+            return null;
+        }
+
+        if(newName.trim().length === 0) {
+            newName = oldLinkData.name;
+        }
+
+        if(newLink.trim().length === 0) {
+            newLink = oldLinkData.link;
+        }
+
+        newLinkData = {...oldLinkData, name: newName, link: newLink};
+
+        try {
+            await this.#localDB.put('linkbookLinks', newLinkData);
+        } catch(err) {
+            const editLinkError = new SystemError(err);
+            handleError(editLinkError);
+            return null;
+        }
+            
+        this.#onLinkbookDataChanged(await this.compileLinkbookData());
+        return newLinkData;
     }
 
     async deleteLink(linkId) {
-        try {
-            if(!this.#localDB) await this.#initializeDatabase();
+        if(!this.#localDB) await this.#initializeDatabase();
+        const data = await this.getLink(linkId);
 
-            const data = await this.getLink(linkId);
-            await this.#localDB.delete('linkbookLinks', linkId);
-
-            this.#onLinkbookDataChanged(await this.compileLinkbookData());
-            return data;
-        } catch(err) {
-            console.error(err);
+        if(!data) {
+            nullDataError = new SystemError('Unable to delete link as it might have already been deleted!');
+            handleError(nullDataError);
+            return null;
         }
+
+        try {
+            await this.#localDB.delete('linkbookLinks', linkId);
+        } catch(err) {
+            const deleteLinkError = new SystemError(err);
+            handleError(deleteLinkError);
+            return null;
+        }
+
+        this.#onLinkbookDataChanged(await this.compileLinkbookData());
+        return linkId;
     }
 
     async editLinkPin(linkId, isPinned) {
-        try {
-            if(!this.#localDB) await this.#initializeDatabase();
+        if(!this.#localDB) await this.#initializeDatabase();
+        const data = await this.getLink(linkId);
+        let linkData;
 
-            const link = await this.getLink(linkId);
-            await this.#localDB.put('linkbookLinks', {...link, isPinned});
-            this.#onLinkbookDataChanged(await this.compileLinkbookData());
-
-            return {link, isPinned};
-        } catch(err) {
-            console.error(err);
+        if(!data) {
+            nullDataError = new SystemError('Unable to edit link\'s pin mode as it might have been deleted!');
+            handleError(nullDataError);
+            return null;
         }
+
+        linkData = {...data, isPinned};
+
+        try {
+            await this.#localDB.put('linkbookLinks', linkData);
+        } catch(err) {
+            const editLinkPinError = new SystemError(err);
+            handleError(editLinkPinError);
+            return null;
+        }
+
+        this.#onLinkbookDataChanged(await this.compileLinkbookData());
+        return linkData;
     }
 
     async createGroup(isPinned) {
-        try {
-            if(!this.#localDB) await this.#initializeDatabase();
+        if(!this.#localDB) await this.#initializeDatabase();
+        let groupId;
+        let group; 
 
-            const groupId = await this.#localDB.put('linkbookGroups', {name: '', isPinned});
-
-            this.#onLinkbookDataChanged(await this.compileLinkbookData());
-            return {id: groupId, name: '', isPinned};
-        } catch(err) {
-            console.error(err);
+        if(!isPinned || typeof isPinned !== 'boolean') {
+            isPinned = false;
         }
+
+        group = {name: '', isPinned};
+
+        try {
+            groupId = await this.#localDB.put('linkbookGroups', group);
+        } catch(err) {
+            const createGroupError = new SystemError(err);
+            handleError(createGroupError);
+            return null;
+        }
+
+        this.#onLinkbookDataChanged(await this.compileLinkbookData());
+        return {id: groupId, ...group};
     }
 
     async getGroup(groupId) {
-        try {
-            if(!this.#localDB) await this.#initializeDatabase();
+        if(!this.#localDB) await this.#initializeDatabase();
+        let data;
 
-            return await this.#localDB.get('linkbookGroups', groupId);
+        try {
+            data = await this.#localDB.get('linkbookGroups', groupId);
+            if(!data) data = null;
         } catch(err) {
-            console.error(err);
+            const getGroupError = new SystemError(err);
+            handleError(getGroupError);
+            return null;
         }
+
+        return data;
     }
 
     async getGroups() {
-        try {
-            if(!this.#localDB) await this.#initializeDatabase();
+        if(!this.#localDB) await this.#initializeDatabase();
+        let data;
 
-            return await this.#localDB.getAll('linkbookGroups');
+        try {
+            data =  await this.#localDB.getAll('linkbookGroups');
         } catch(err) {
-            console.error(err);
+            const getGroupsError = new SystemError(err);
+            handleError(getGroupsError);
+            data = [];
         }
+
+        return data;
     }
 
     async getGroupChildren(groupId) {
-        try {
-            if(!this.#localDB) await this.#initializeDatabase();
+        if(!this.#localDB) await this.#initializeDatabase();
 
-            return await this.#localDB.getAllFromIndex('linkbookLinks', 'parent', groupId);
-        } catch(err) {
-            console.error(err);
+        let children;
+        const group = this.getGroup(groupId);
+        if(!group) {
+            nullGroupError = new SystemError('Unable to get group\'s children as it might have been deleted!');
+            handleError(nullGroupError);
+            return null;
         }
+
+        try {
+            children = await this.#localDB.getAllFromIndex('linkbookLinks', 'parent', groupId);
+        } catch(err) {
+            const getChildrenError = new SystemError(err);
+            handleError(getChildrenError);
+            children = [];
+        }
+
+        return children;
     }
 
     async editGroupName(groupId, newName) {
-        try {
-            if(!this.#localDB) await this.#initializeDatabase();
-
-            const group = await this.getGroup(groupId);
-            const newGroup = {...group, name: newName};
-            await this.#localDB.put('linkbookGroups', newGroup);
-            this.#onLinkbookDataChanged(await this.compileLinkbookData());
-
-            return newGroup;
-        } catch(err) {
-            console.error(err);
+        if(!this.#localDB) await this.#initializeDatabase();
+        
+        const oldGroup = await this.getGroup(groupId);
+        if(!oldGroup) {
+            nullGroupError = new SystemError('Unable to edit group as it might have been deleted!');
+            handleError(nullGroupError);
+            return null;
         }
+        const newGroup = {...oldGroup, name: newName};
+
+        try {
+            await this.#localDB.put('linkbookGroups', newGroup);
+        } catch(err) {
+            const editGroupError = new SystemError(err);
+            handleError(editGroupError);
+            return null;
+        }
+
+        this.#onLinkbookDataChanged(await this.compileLinkbookData());
+        return newGroup;
     }
 
     async deleteGroup(groupId) {
-        try {
-            if(!this.#localDB) await this.#initializeDatabase();
-
-            const data = await this.getGroup(groupId);
-            await this.#localDB.delete('linkbookGroups', groupId);
-
-            this.#onLinkbookDataChanged(await this.compileLinkbookData());
-            return data;
-        } catch(err) {
-            console.error(err);
+        if(!this.#localDB) await this.#initializeDatabase();
+        const data = await this.getGroup(groupId);
+        if(!data) {
+            nullGroupError = new SystemError('Unable to delete group as it might have already been deleted!');
+            handleError(nullGroupError);
+            return null;
         }
+
+        try {
+            await this.#localDB.delete('linkbookGroups', groupId);
+        } catch(err) {
+            const deleteGroupError = new SystemError(err);
+            handleError(deleteGroupError);
+            return null;
+        }
+
+        this.#onLinkbookDataChanged(await this.compileLinkbookData());
+        return data;
     }
 
     async editGroupPin(groupId, isPinned) {
-        try {
-            if(!this.#localDB) await this.#initializeDatabase();
+        if(!this.#localDB) await this.#initializeDatabase();
 
-            const group = await this.getGroup(groupId);
-            const newGroup = {...group, isPinned};
-            await this.#localDB.put('linkbookGroups', newGroup);
-
-            this.#onLinkbookDataChanged(await this.compileLinkbookData());
-
-            return newGroup;
-        } catch(err) {
-            console.error(err);
+        const data = await this.getGroup(groupId);
+        if(!data) {
+            nullGroupError = new SystemError('Unable to edit group\'s pin mode as it might have been deleted!');
+            handleError(nullGroupError);
+            return null;
         }
+        const newGroup = {...data, isPinned};
+
+        try {
+            await this.#localDB.put('linkbookGroups', newGroup);
+        } catch(err) {
+            const deleteGroupError = new SystemError(err);
+            handleError(deleteGroupError);
+            return null;
+        }
+
+        this.#onLinkbookDataChanged(await this.compileLinkbookData());
+        return newGroup;
     }
 }
 
@@ -775,19 +937,25 @@ class LinksController {
         this.#view.closeLinkDataForm();
     }
 
-    #onSaveLinkDataForm(formData) {
+    async #onSaveLinkDataForm(formData) {
         if(!formData.id) {
             const linkData = {...formData, ...this.#newLinkData};
-            this.#model.createLink(linkData);
+            const data = await this.#model.createLink(linkData.name, linkData.link, linkData.parent, linkData.isPinned)
+            if(!data) return;
         } else {
-            this.#model.editLink(formData.id, formData.name, formData.link);
+            const data = this.#model.editLinkNameAndLink(formData.id, formData.name, formData.link);
+            if(!data) return;
         }
+
         this.#onCloseLinkDataForm();
     }
 
     #onCreateGroup(isPinned) {
         this.#model.createGroup(isPinned)
-            .then(group => this.#view.editGroup(group.id, isPinned ? 'pinned' : 'all'))
+            .then(group => {
+                if(!group) return;
+                this.#view.editGroup(group.id, isPinned ? 'pinned' : 'all')
+            });
     }
 
     #onGroupEditSave(groupId, groupName) {
@@ -821,7 +989,11 @@ class LinksController {
     #onOptionsMenuEdit() {
         if(this.#moreOptionsState.type === 'link') {
             this.#model.getLink(this.#moreOptionsState.id)
-                .then(link => this.#view.openLinkDataForm(link));
+                .then(link => {
+                    // TODO: Handle empty link by displaying an error to the user
+                    if(!link) return;
+                    this.#view.openLinkDataForm(link);
+                });
             
         } else {
             this.#view.editGroup(this.#moreOptionsState.id, this.#moreOptionsState.isPinned ? 'pinned' : 'all');
@@ -848,6 +1020,40 @@ class LinksController {
                 }
             })
         }
+    }
+}
+
+function handleError(error) {
+    if(error.constructor.name === 'UserError') {
+        console.error(error.message);
+    } else {
+        console.error(error.message, error.name, error.stack);
+    }
+}
+
+class UserError extends Error {
+    constructor(error) {
+        if(typeof error === 'string') {
+            super(error);
+        } else {
+            super(error.message);
+            this.cause = error;
+        }
+
+        this.name = 'UserError';
+    }
+}
+
+class SystemError extends Error {
+    constructor(error) {
+        if(typeof error === 'string') {
+            super(error);
+        } else {
+            super(error.message);
+            this.cause = error;
+        }
+
+        this.name = 'SystemError';
     }
 }
 
