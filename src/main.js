@@ -94,13 +94,16 @@ class LinksModel {
         }
     }
 
-    async editLink(linkData) {
+    async editLink(linkId, newName, newLink) {
         try {
             if(!this.#localDB) await this.#initializeDatabase();
 
-            // Later abstractions to the main database will require this
-            await this.createLink(linkData);
-            return linkData;
+            const oldLinkData = await this.getLink(linkId);
+            const newLinkData = {...oldLinkData, name: newName, link: newLink};
+            await this.#localDB.put('linkbookLinks', newLinkData);
+            
+            this.#onLinkbookDataChanged(await this.compileLinkbookData());
+            return newLinkData;
         } catch(err) {
             console.error(err);
         }
@@ -120,27 +123,28 @@ class LinksModel {
         }
     }
 
-    async setLinkPin(linkId, isPinned) {
+    async editLinkPin(linkId, isPinned) {
         try {
             if(!this.#localDB) await this.#initializeDatabase();
 
             const link = await this.getLink(linkId);
-
+            await this.#localDB.put('linkbookLinks', {...link, isPinned});
             this.#onLinkbookDataChanged(await this.compileLinkbookData());
-            return await this.editLink({...link, isPinned});
+
+            return {link, isPinned};
         } catch(err) {
             console.error(err);
         }
     }
 
-    async createGroup(groupData) {
+    async createGroup(isPinned) {
         try {
             if(!this.#localDB) await this.#initializeDatabase();
 
-            const groupId = await this.#localDB.put('linkbookGroups', groupData);
+            const groupId = await this.#localDB.put('linkbookGroups', {name: '', isPinned});
 
             this.#onLinkbookDataChanged(await this.compileLinkbookData());
-            return {...groupData, id: groupId};
+            return {id: groupId, name: '', isPinned};
         } catch(err) {
             console.error(err);
         }
@@ -176,14 +180,16 @@ class LinksModel {
         }
     }
 
-    async editGroup(groupData) {
+    async editGroupName(groupId, newName) {
         try {
             if(!this.#localDB) await this.#initializeDatabase();
 
-            // Later abstractions to the main database will require this
-            await this.createGroup(groupData);
+            const group = await this.getGroup(groupId);
+            const newGroup = {...group, name: newName};
+            await this.#localDB.put('linkbookGroups', newGroup);
+            this.#onLinkbookDataChanged(await this.compileLinkbookData());
 
-            return groupData;
+            return newGroup;
         } catch(err) {
             console.error(err);
         }
@@ -203,14 +209,17 @@ class LinksModel {
         }
     }
 
-    async setGroupPin(groupId, isPinned) {
+    async editGroupPin(groupId, isPinned) {
         try {
             if(!this.#localDB) await this.#initializeDatabase();
 
             const group = await this.getGroup(groupId);
+            const newGroup = {...group, isPinned};
+            await this.#localDB.put('linkbookGroups', newGroup);
 
             this.#onLinkbookDataChanged(await this.compileLinkbookData());
-            return await this.editGroup({...group, isPinned});
+
+            return newGroup;
         } catch(err) {
             console.error(err);
         }
@@ -499,7 +508,6 @@ class LinkbookView {
     }
 
     editGroup(groupId, location) {
-        console.log(location);
         const groupRoot = this.getElement(`[data-id="${groupId}-group-${location}"]`);       
         const groupHeaderDetailsName = this.getElement('.linkbook-browser-links-group__header-title', groupRoot);
         const groupHeaderOptions = this.getElement('.linkbook-browser-links-group__header-options', groupRoot);
@@ -772,22 +780,18 @@ class LinksController {
             const linkData = {...formData, ...this.#newLinkData};
             this.#model.createLink(linkData);
         } else {
-            this.#model.getLink(formData.id)
-                .then(link => this.#model.editLink({...link, name: formData.name, link: formData.link}));
+            this.#model.editLink(formData.id, formData.name, formData.link);
         }
         this.#onCloseLinkDataForm();
     }
 
     #onCreateGroup(isPinned) {
-        console.error(isPinned);
-        this.#model.createGroup({name: '', isPinned: isPinned})
+        this.#model.createGroup(isPinned)
             .then(group => this.#view.editGroup(group.id, isPinned ? 'pinned' : 'all'))
     }
 
     #onGroupEditSave(groupId, groupName) {
-        this.#model.getGroup(groupId).then(group => {
-            this.#model.editGroup({...group, name: groupName});
-        });
+        this.#model.editGroupName(groupId, groupName);
     }
 
     #onOpenOptionsMenu(element, elementType, elementId, isElementPinned, options) {
@@ -802,16 +806,16 @@ class LinksController {
 
     #onOptionsMenuPin() {
         if(this.#moreOptionsState.type === 'link')
-            this.#model.setLinkPin(this.#moreOptionsState.id, true);
+            this.#model.editLinkPin(this.#moreOptionsState.id, true);
         else
-            this.#model.setGroupPin(this.#moreOptionsState.id, true);
+            this.#model.editGroupPin(this.#moreOptionsState.id, true);
     }
 
     #onOptionsMenuUnpin() {
         if(this.#moreOptionsState.type === 'link')
-            this.#model.setLinkPin(this.#moreOptionsState.id, false);
+            this.#model.editLinkPin(this.#moreOptionsState.id, false);
         else
-            this.#model.setGroupPin(this.#moreOptionsState.id, false);
+            this.#model.editGroupPin(this.#moreOptionsState.id, false);
     }
 
     #onOptionsMenuEdit() {
@@ -823,6 +827,7 @@ class LinksController {
             this.#view.editGroup(this.#moreOptionsState.id, this.#moreOptionsState.isPinned ? 'pinned' : 'all');
         }
     }
+
     #onOptionsMenuDelete() {
         if(this.#moreOptionsState.type === 'link') {
             this.#model.deleteLink(this.#moreOptionsState.id);
