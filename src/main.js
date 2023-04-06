@@ -816,6 +816,8 @@ class LinkbookView {
             this.#linkDataForm.setAttribute('data-id', editData.id);
         } else {
             this.getElement('[data-open-type="create"]', this.#linkDataForm).classList.remove('link-content-form__details-title--hidden');
+            this.#linkDataFormNameField.value = '';
+            this.#linkDataFormLinkField.value = '';
         }
 
         this.#linkDataForm.classList.remove('link-content-form--disabled');  
