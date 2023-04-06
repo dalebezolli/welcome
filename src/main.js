@@ -6,6 +6,7 @@ class LinksModel {
     #databaseVersion;
 
     #onLinkbookDataChanged;
+    #onErrorHandle;
 
     constructor() {
         this.#databaseName = 'Primary';
@@ -14,6 +15,10 @@ class LinksModel {
     
     bindLinkbookDataChanged(callback) {
         this.#onLinkbookDataChanged = callback;
+    }
+
+    bindErrorHandle(handle) {
+        this.#onErrorHandle = handle;
     }
 
     async compileLinkbookData() {
@@ -94,7 +99,7 @@ class LinksModel {
                 throw new UserError('Try again by specifying a link for your link shortcut!');
             }
         } catch(err) {
-            handleError(err);
+            this.#onErrorHandle(err);
             return null;
         }
 
@@ -112,7 +117,7 @@ class LinksModel {
             linkId = await this.#localDB.put('linkbookLinks', linkData);
         } catch (err) {
             const linkSaveError = new SystemError(err);
-            handleError(linkSaveError);
+            this.#onErrorHandle(linkSaveError);
             return null;
         }
 
@@ -129,7 +134,7 @@ class LinksModel {
             if(!data) data = null;
         } catch(err) {
             const getLinkError = new SystemError(err);
-            handleError(getLinkError);
+            this.#onErrorHandle(getLinkError);
             data = null;
         }
 
@@ -144,7 +149,7 @@ class LinksModel {
             links = await this.#localDB.getAll('linkbookLinks');
         } catch(err) {
             const getLinksError = new SystemError(err);
-            handleError(getLinksError);
+            this.#onErrorHandle(getLinksError);
             links = [];
         }
 
@@ -157,7 +162,7 @@ class LinksModel {
         const oldLinkData = await this.getLink(linkId);
         if(!oldLinkData) {
             nullDataError = new SystemError('Unable to edit link as it might have been deleted!');
-            handleError(nullDataError);
+            this.#onErrorHandle(nullDataError);
             return null;
         }
         let newLinkData;
@@ -171,7 +176,7 @@ class LinksModel {
                 throw new SystemError('Edit link called with non string newName or newLink!');
             } 
         } catch(err) {
-            handleError(err);
+            this.#onErrorHandle(err);
             return null;
         }
 
@@ -189,7 +194,7 @@ class LinksModel {
             await this.#localDB.put('linkbookLinks', newLinkData);
         } catch(err) {
             const editLinkError = new SystemError(err);
-            handleError(editLinkError);
+            this.#onErrorHandle(editLinkError);
             return null;
         }
             
@@ -203,7 +208,7 @@ class LinksModel {
 
         if(!data) {
             nullDataError = new SystemError('Unable to delete link as it might have already been deleted!');
-            handleError(nullDataError);
+            this.#onErrorHandle(nullDataError);
             return null;
         }
 
@@ -211,7 +216,7 @@ class LinksModel {
             await this.#localDB.delete('linkbookLinks', linkId);
         } catch(err) {
             const deleteLinkError = new SystemError(err);
-            handleError(deleteLinkError);
+            this.#onErrorHandle(deleteLinkError);
             return null;
         }
 
@@ -226,7 +231,7 @@ class LinksModel {
 
         if(!data) {
             nullDataError = new SystemError('Unable to edit link\'s pin mode as it might have been deleted!');
-            handleError(nullDataError);
+            this.#onErrorHandle(nullDataError);
             return null;
         }
 
@@ -236,7 +241,7 @@ class LinksModel {
             await this.#localDB.put('linkbookLinks', linkData);
         } catch(err) {
             const editLinkPinError = new SystemError(err);
-            handleError(editLinkPinError);
+            this.#onErrorHandle(editLinkPinError);
             return null;
         }
 
@@ -259,7 +264,7 @@ class LinksModel {
             groupId = await this.#localDB.put('linkbookGroups', group);
         } catch(err) {
             const createGroupError = new SystemError(err);
-            handleError(createGroupError);
+            this.#onErrorHandle(createGroupError);
             return null;
         }
 
@@ -276,7 +281,7 @@ class LinksModel {
             if(!data) data = null;
         } catch(err) {
             const getGroupError = new SystemError(err);
-            handleError(getGroupError);
+            this.#onErrorHandle(getGroupError);
             return null;
         }
 
@@ -291,7 +296,7 @@ class LinksModel {
             data =  await this.#localDB.getAll('linkbookGroups');
         } catch(err) {
             const getGroupsError = new SystemError(err);
-            handleError(getGroupsError);
+            this.#onErrorHandle(getGroupsError);
             data = [];
         }
 
@@ -305,7 +310,7 @@ class LinksModel {
         const group = this.getGroup(groupId);
         if(!group) {
             nullGroupError = new SystemError('Unable to get group\'s children as it might have been deleted!');
-            handleError(nullGroupError);
+            this.#onErrorHandle(nullGroupError);
             return null;
         }
 
@@ -313,7 +318,7 @@ class LinksModel {
             children = await this.#localDB.getAllFromIndex('linkbookLinks', 'parent', groupId);
         } catch(err) {
             const getChildrenError = new SystemError(err);
-            handleError(getChildrenError);
+            this.#onErrorHandle(getChildrenError);
             children = [];
         }
 
@@ -326,7 +331,7 @@ class LinksModel {
         const oldGroup = await this.getGroup(groupId);
         if(!oldGroup) {
             nullGroupError = new SystemError('Unable to edit group as it might have been deleted!');
-            handleError(nullGroupError);
+            this.#onErrorHandle(nullGroupError);
             return null;
         }
         const newGroup = {...oldGroup, name: newName};
@@ -335,7 +340,7 @@ class LinksModel {
             await this.#localDB.put('linkbookGroups', newGroup);
         } catch(err) {
             const editGroupError = new SystemError(err);
-            handleError(editGroupError);
+            this.#onErrorHandle(editGroupError);
             return null;
         }
 
@@ -348,7 +353,7 @@ class LinksModel {
         const data = await this.getGroup(groupId);
         if(!data) {
             nullGroupError = new SystemError('Unable to delete group as it might have already been deleted!');
-            handleError(nullGroupError);
+            this.#onErrorHandle(nullGroupError);
             return null;
         }
 
@@ -356,7 +361,7 @@ class LinksModel {
             await this.#localDB.delete('linkbookGroups', groupId);
         } catch(err) {
             const deleteGroupError = new SystemError(err);
-            handleError(deleteGroupError);
+            this.#onErrorHandle(deleteGroupError);
             return null;
         }
 
@@ -370,7 +375,7 @@ class LinksModel {
         const data = await this.getGroup(groupId);
         if(!data) {
             nullGroupError = new SystemError('Unable to edit group\'s pin mode as it might have been deleted!');
-            handleError(nullGroupError);
+            this.#onErrorHandle(nullGroupError);
             return null;
         }
         const newGroup = {...data, isPinned};
@@ -379,7 +384,7 @@ class LinksModel {
             await this.#localDB.put('linkbookGroups', newGroup);
         } catch(err) {
             const deleteGroupError = new SystemError(err);
-            handleError(deleteGroupError);
+            this.#onErrorHandle(deleteGroupError);
             return null;
         }
 
@@ -860,6 +865,26 @@ class LinkbookView {
         this.#alertbox.classList.add('alertbox--hidden');
         this.#alertboxPrompt.textContent = '';
     }
+
+    createGlobalError(message) {
+        const rootElement = this.createElement('div', 'global-error-box');
+        const messageElement = this.createElement('p', 'glboal-error-box__message');
+
+        messageElement.textContent = message;
+        rootElement.append(messageElement);
+
+        this.#app.append(rootElement);
+        setTimeout(() => {
+            rootElement.classList.add('global-error-box--enabled');
+        }, 0);
+
+        setTimeout(() => {
+            rootElement.classList.remove('global-error-box--enabled');
+            setTimeout(() => {
+                rootElement.remove();
+            }, 1000);
+        }, 5 * 1000);
+    }
 }
 
 class LinksController {
@@ -874,6 +899,7 @@ class LinksController {
         this.#view = view;
 
         this.#model.bindLinkbookDataChanged(this.#onLinkbookDataChanged.bind(this));
+        this.#model.bindErrorHandle(this.#onHandleError.bind(this));
 
         this.#view.bindOpenLinkDataForm(this.#onOpenLinkDataForm.bind(this));
         this.#view.bindCloseLinkDataForm(this.#onCloseLinkDataForm.bind(this));
@@ -1021,13 +1047,13 @@ class LinksController {
             })
         }
     }
-}
 
-function handleError(error) {
-    if(error.constructor.name === 'UserError') {
-        console.error(error.message);
-    } else {
-        console.error(error.message, error.name, error.stack);
+    #onHandleError(error) {
+        if(error.constructor.name === 'UserError') {
+            this.#view.createGlobalError(error.message);
+        } else {
+            console.error(error.message, error.name, error.stack);
+        }
     }
 }
 
@@ -1063,3 +1089,7 @@ addEventListener('DOMContentLoaded', _ => {
     model = new LinksModel()
     app = new LinksController(model, new LinkbookView());
 })
+
+function toggleError() {
+    document.querySelector('.global-error-box').classList.toggle('global-error-box--enabled');
+}

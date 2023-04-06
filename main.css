@@ -896,3 +896,34 @@ body {
 .alertbox__button--yes:where(:hover, :focus) {
     background-color: var(--color-green-200);
 }
+
+
+/* GLOBAL ERROR BOX */
+
+.global-error-box {
+    opacity: 0;
+    z-index: 1000;
+
+    position: fixed;
+    bottom: calc(var(--spacing-3x) * -2);
+    left: 50vw;
+    transform: translateX(-50%);
+
+    padding-block: var(--spacing-1x);
+    padding-inline: var(--spacing-2x);
+
+    background-color: var(--color-red-400);
+    border-radius: var(--border-radius);
+
+    transition: opacity .75s ease, bottom .5s cubic-bezier(.24,-0.21,0,1.78);
+}
+
+.global-error-box__message {
+    font-weight: var(--fw-medium);
+    color: var(--color-netural-100);
+}
+
+.global-error-box--enabled {
+    opacity: 1;
+    bottom: var(--spacing-3x);
+}
