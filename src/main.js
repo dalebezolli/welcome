@@ -597,7 +597,7 @@ class LinkbookView {
         this.#optionsMenuDelete.onclick = handler;
     }
 
-    #createLinkDisplay(linkData, isPinned) {
+    #createLinkDisplay(linkData, isPinned, location) {
         const linkRoot = this.createElement('div', 'linkbook-browser-links-group__link-item');
         const linkDetails = this.createElement('button', 'linkbook-browser-links-group__link-item-details');
         const linkImg = this.createElement('img', 'linkbook-browser-links-group__link-item-icon');   
@@ -616,7 +616,7 @@ class LinkbookView {
         linkOptions.append(linkOptionMenuButton);
 
         linkOptionMenuButton.addEventListener('click', _ => {
-            this.#onOpenOptionsMenu(linkRoot, linkData.type, linkData.id, isPinned, {pin: !isPinned, unpin: isPinned && linkData.parent === 0, edit: true, delete: true});
+            this.#onOpenOptionsMenu(linkRoot, linkData.type, linkData.id, isPinned, {pin: !isPinned, unpin: isPinned && location === 'pinned', edit: true, delete: true});
         }, {capture: true});
 
         linkRoot.addEventListener('click', event => {
@@ -758,7 +758,7 @@ class LinkbookView {
 
         for(const element of elements) {
             if(element.type === 'link') {
-                const linkDisplay = this.#createLinkDisplay(element, false);
+                const linkDisplay = this.#createLinkDisplay(element, false, 'all');
                 this.#allLinksList.append(linkDisplay);
             } else {
                 const groupDisplay = this.#createGroupDisplay(element, false);
@@ -766,7 +766,7 @@ class LinkbookView {
 
                 const groupList = this.getElement('.linkbook-browser-links-group__links', groupDisplay);
                 for(const child of element.children) {
-                    const linkDisplay = this.#createLinkDisplay(child, false);
+                    const linkDisplay = this.#createLinkDisplay(child, false, 'all-child');
                     groupList.append(linkDisplay);
                 }
             }
@@ -785,7 +785,7 @@ class LinkbookView {
             const groupList = this.getElement('.linkbook-browser-links-group__links', groupDisplay);
 
             for(const child of element.children) {
-                const linkDisplay = this.#createLinkDisplay(child, true);
+                const linkDisplay = this.#createLinkDisplay(child, true, (element.id === 0 ? 'pinned' : 'pinned-child'));
                 groupList.append(linkDisplay);
             }
         }
