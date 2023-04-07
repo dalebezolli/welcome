@@ -598,26 +598,18 @@ class LinkbookView {
     }
 
     #createLinkDisplay(linkData, isPinned, location) {
-        const linkRoot = this.createElement('div', 'linkbook-browser-links-group__link-item');
-        const linkDetails = this.createElement('button', 'linkbook-browser-links-group__link-item-details');
+        const linkRoot = this.createElement('button', 'linkbook-browser-links-group__link-item');
+        const linkDetails = this.createElement('div', 'linkbook-browser-links-group__link-item-details');
         const linkImg = this.createElement('img', 'linkbook-browser-links-group__link-item-icon');   
         const linkNameText = this.createElement('span', 'linkbook-browser-links-group__link-item-name');
-        const linkOptions = this.createElement('div', 'linkbook-browser-links-group__link-item-options');
-        const linkOptionMenuButton = this.createElement('button', 'button--small');
 
         linkImg.src = `https://www.google.com/s2/favicons?domain=${linkData.link}&sz=64`;
         linkNameText.textContent = linkData.name;
-        linkOptionMenuButton.innerHTML = '<svg class="options-button__icon options-button__icon--secondary" width="24" height="24" viewBox="0 0 24 24"><path d="M12 14C13.1046 14 14 13.1046 14 12C14 10.8954 13.1046 10 12 10C10.8954 10 10 10.8954 10 12C10 13.1046 10.8954 14 12 14Z"/><path d="M6 14C7.10457 14 8 13.1046 8 12C8 10.8954 7.10457 10 6 10C4.89543 10 4 10.8954 4 12C4 13.1046 4.89543 14 6 14Z"/><path d="M18 14C19.1046 14 20 13.1046 20 12C20 10.8954 19.1046 10 18 10C16.8954 10 16 10.8954 16 12C16 13.1046 16.8954 14 18 14Z"/></svg>';
 
         linkRoot.setAttribute('data-id', `${linkData.id}-${linkData.type}`);
 
-        linkRoot.append(linkDetails, linkOptions);
+        linkRoot.append(linkDetails);
         linkDetails.append(linkImg, linkNameText);
-        linkOptions.append(linkOptionMenuButton);
-
-        linkOptionMenuButton.addEventListener('click', _ => {
-            this.#onOpenOptionsMenu(linkRoot, linkData.type, linkData.id, isPinned, {pin: !isPinned, unpin: isPinned && location === 'pinned', edit: true, delete: true});
-        }, {capture: true});
 
         linkRoot.addEventListener('click', event => {
             if(
@@ -633,41 +625,43 @@ class LinkbookView {
             }
         });
 
+        linkRoot.addEventListener('contextmenu', event => {
+            event.preventDefault();
+            event.stopPropagation();
+            this.#onOpenOptionsMenu(linkRoot, linkData.type, linkData.id, isPinned, {pin: !isPinned, unpin: isPinned && location === 'pinned', edit: true, delete: true});
+        });
+
         return linkRoot;
     }
 
     #createGroupDisplay(groupData, isPinned) {
         const groupRoot = this.createElement('div', 'linkbook-browser-links-group');
         const groupHeader = this.createElement('div', 'linkbook-browser-links-group__header');
-        const groupHeaderDetails = this.createElement('button', 'linkbook-browser-links-group__header-details');
+        const groupHeaderDetails = this.createElement('div', 'linkbook-browser-links-group__header-details');
         const groupHeaderOptions = this.createElement('div', 'linkbook-browser-links-group__header-options');
-        const groupHeaderOptionAddLinkButton = this.createElement('button', 'button--small', 'add-link-button');
-        const groupHeaderOptionOptionsMenuButton = this.createElement('button', 'button--small');
+        const groupHeaderOptionAddLinkButton = this.createElement('button', 'linkbook-browser-links-group__header-option-icon', 'add-link-button');
         const groupLinkList = this.createElement('div', 'linkbook-browser-links-group__links');
 
         groupHeaderDetails.innerHTML = `
-            <svg class="linkbook-browser-links-group__header-icon" width="16" height="17" viewBox="0 0 16 17">
-                <path d="M2 3.83333C2 3.09695 2.59695 2.5 3.33333 2.5H6C6.7364 2.5 7.33333 3.09695 7.33333 3.83333V6.5C7.33333 7.2364 6.7364 7.83333 6 7.83333H3.33333C2.59695 7.83333 2 7.2364 2 6.5V3.83333ZM6 3.83333H3.33333V6.5H6V3.83333ZM8.66667 3.83333C8.66667 3.09695 9.2636 2.5 10 2.5H12.6667C13.4031 2.5 14 3.09695 14 3.83333V6.5C14 7.2364 13.4031 7.83333 12.6667 7.83333H10C9.2636 7.83333 8.66667 7.2364 8.66667 6.5V3.83333ZM12.6667 3.83333H10V6.5H12.6667V3.83333ZM2 10.5C2 9.7636 2.59695 9.16667 3.33333 9.16667H6C6.7364 9.16667 7.33333 9.7636 7.33333 10.5V13.1667C7.33333 13.9031 6.7364 14.5 6 14.5H3.33333C2.59695 14.5 2 13.9031 2 13.1667V10.5ZM6 10.5H3.33333V13.1667H6V10.5ZM8.66667 10.5C8.66667 9.7636 9.2636 9.16667 10 9.16667H12.6667C13.4031 9.16667 14 9.7636 14 10.5V13.1667C14 13.9031 13.4031 14.5 12.6667 14.5H10C9.2636 14.5 8.66667 13.9031 8.66667 13.1667V10.5ZM12.6667 10.5H10V13.1667H12.6667V10.5Z">
+            <svg class="linkbook-browser-links-group__header-icon" width="16" height="16" viewBox="0 0 16 16">
+                <path d="M3.5 13.5H12.5C13.3273 13.5 14 12.8273 14 12V6C14 5.17266 13.3273 4.5 12.5 4.5H8.75C8.51328 4.5 8.29062 4.38984 8.15 4.2L7.7 3.6C7.41641 3.22266 6.97109 3 6.5 3H3.5C2.67266 3 2 3.67266 2 4.5V12C2 12.8273 2.67266 13.5 3.5 13.5Z" fill="#E6E6E6"/>
             </svg>
             <span class="linkbook-browser-links-group__header-title">
                 ${groupData.name}
             </span>
         `;
         groupHeaderOptionAddLinkButton.innerHTML = '<svg class="new-link-button__icon new-link-button__icon--secondary" width="16" height="13" viewBox="0 0 16 13"><path d="M14.07 6.7925C15.4825 5.38 15.4825 3.0925 14.07 1.68C12.82 0.430004 10.85 0.267504 9.4125 1.295L9.3725 1.3225C9.0125 1.58 8.93 2.08 9.1875 2.4375C9.445 2.795 9.945 2.88 10.3025 2.6225L10.3425 2.595C11.145 2.0225 12.2425 2.1125 12.9375 2.81C13.725 3.5975 13.725 4.8725 12.9375 5.66L10.1325 8.47C9.345 9.2575 8.07 9.2575 7.2825 8.47C6.585 7.7725 6.495 6.675 7.0675 5.875L7.095 5.835C7.3525 5.475 7.2675 4.975 6.91 4.72C6.5525 4.465 6.05001 4.5475 5.79501 4.905L5.7675 4.945C4.7375 6.38 4.90001 8.35 6.15001 9.6C7.56251 11.0125 9.85 11.0125 11.2625 9.6L14.07 6.7925ZM1.08 6.2075C-0.332495 7.62 -0.332495 9.9075 1.08 11.32C2.33 12.57 4.30001 12.7325 5.73751 11.705L5.77751 11.6775C6.13751 11.42 6.22001 10.92 5.96251 10.5625C5.70501 10.205 5.205 10.12 4.8475 10.3775L4.80751 10.405C4.00501 10.9775 2.9075 10.8875 2.2125 10.19C1.425 9.4 1.425 8.125 2.2125 7.3375L5.0175 4.53C5.805 3.7425 7.08 3.7425 7.8675 4.53C8.56501 5.2275 8.655 6.325 8.0825 7.1275L8.05501 7.1675C7.7975 7.5275 7.8825 8.0275 8.24 8.2825C8.5975 8.5375 9.10001 8.455 9.35501 8.0975L9.3825 8.0575C10.4125 6.62 10.25 4.65 9 3.4C7.5875 1.9875 5.30001 1.9875 3.88751 3.4L1.08 6.2075Z" /></svg>';
-        groupHeaderOptionOptionsMenuButton.innerHTML = '<svg class="options-button__icon options-button__icon--secondary" width="24" height="24" viewBox="0 0 24 24"><path d="M12 14C13.1046 14 14 13.1046 14 12C14 10.8954 13.1046 10 12 10C10.8954 10 10 10.8954 10 12C10 13.1046 10.8954 14 12 14Z"/><path d="M6 14C7.10457 14 8 13.1046 8 12C8 10.8954 7.10457 10 6 10C4.89543 10 4 10.8954 4 12C4 13.1046 4.89543 14 6 14Z"/><path d="M18 14C19.1046 14 20 13.1046 20 12C20 10.8954 19.1046 10 18 10C16.8954 10 16 10.8954 16 12C16 13.1046 16.8954 14 18 14Z"/></svg>';
 
         groupRoot.setAttribute('data-id', `${groupData.id}-${groupData.type}-${isPinned ? 'pinned' : 'all' }`);
 
         groupRoot.append(groupHeader, groupLinkList);
         groupHeader.append(groupHeaderDetails, groupHeaderOptions);
         groupHeaderOptions.append(groupHeaderOptionAddLinkButton);
-        if(groupData.id !== 0) {
-            groupHeaderOptions.append(groupHeaderOptionOptionsMenuButton);
-        }
 
         groupHeaderOptionAddLinkButton.addEventListener('click', _ => this.#onOpenLinkDataForm(groupData.id, (groupData.id !== 0 ? false : isPinned)));
-
-        groupHeaderOptionOptionsMenuButton.addEventListener('click', _ => {
+        groupRoot.addEventListener('contextmenu', event => {
+            event.preventDefault();
+            event.stopPropagation();
             this.#onOpenOptionsMenu(groupRoot, groupData.type, groupData.id, isPinned, {pin: !isPinned, unpin: isPinned, edit: true, delete: true});
         });
 

@@ -306,10 +306,7 @@ body {
 /* LINKBOOK */
 
 .linkbook {
-    padding-inline: var(--spacing-3x) var(--spacing-1x);
-    padding-block: var(--spacing-3x);
-
-    min-width: min(800px, 35vw);
+    min-width: 400px;
     height: 100%;
 
     display: flex;
@@ -321,8 +318,7 @@ body {
 /* LINKBOOK HEADER */
 
 .linkbook-header {
-    margin-bottom: var(--spacing-3x);
-    padding-bottom: var(--spacing-2x);
+    padding: var(--spacing-2x);
 
     display: flex;
     justify-content: space-between;
@@ -342,76 +338,57 @@ body {
 
 .link-search {
     position: relative;
-    width: 50%;
+    width: 2rem;
+    height: 2rem;
+
+    display: grid;
+    place-items: center;
+
+    background-color: var(--color-netural-700);
+    border-radius: 100%;
 }
 
 .link-search__icon {
     position: absolute;
-    top: 50%;
-    left: var(--spacing-2x);
-    transform: translateY(-55%);
+    transform: translateY(-10%);
 
     fill: var(--color-netural-400);
-}
-
-.link-search__input {
-    width: 100%;
-    padding-inline: var(--spacing-3-5x) var(--spacing-2x);
-    padding-block: var(--spacing-1x);
-
-    font-size: .875rem;
-
-    background-color: var(--color-netural-600);   
-    border: none;
-    border-radius: var(--border-radius);
-
-    cursor: not-allowed;
-}
-
-.linkbook-header__search::placeholder {
-    color: var(--color-netural-100);
 }
 
 /* LINKBOOK BROWSER */
 
 .linkbook-browser {
     width: 100%;
-    height: 90%;
+    height: 100%;
     overflow-y: scroll;
-
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-3x);
 }
 
 /* LINKBOOK BROWSER CATEGORIES */
 .linkbook-browser-category__header {
-    position: sticky;
-    top: 0;
+    height: 34px;
 
-    margin-block: calc(-1 * var(--spacing-0-5x));
-    padding: var(--spacing-0-5x);
+    padding-left: var(--spacing-2x);
 
     display: flex;
     justify-content: space-between;
 
-    border-radius: var(--border-radius);
-    background-color: var(--color-netural-800);
+    border: 1px solid transparent;
 }
 
 .linkbook-browser-category__header:where(:hover, :focus-within) {
-    z-index: 5;
-    background-color: var(--color-netural-700);
+    border: 1px solid var(--color-primary);
 }
 
 .linkbook-browser-category__header-details {
+    flex-basis: 100%;
+
     display: flex;
     align-items: center;
     gap: var(--spacing-1x);
 }
 
 .linkbook-browser-category__header-title {
-    font-size: 1rem;
+    font-size: .875rem;
     color: var(--color-netural-100);
 }
 
@@ -422,8 +399,6 @@ body {
 
 .linkbook-browser-category__header-options {
     display: flex;
-    gap: var(--spacing-0-5x);
-
     opacity: 0;
 }
 
@@ -431,28 +406,33 @@ body {
     opacity: 1;
 }
 
-.linkbook-browser-links {
-    padding-left: var(--spacing-2-5x);
+.linkbook-browser-category__header-options-icon {
+    width: 32px;
+    height: 32px;
+
+    display: grid;
+    place-items: center; 
+
+    border: none;
+    background-color: transparent;
 }
 
 /* LINKBOOK BROWSER GROUPS */
 .linkbook-browser-links-group__header {
+    height: 34px;
+
     position: relative;
 
-    margin: calc(-1 * var(--spacing-0-5x));
-    margin-right: 0;
-    padding: var(--spacing-0-5x);
+    padding-left: calc(var(--spacing-2x) + 24px);
 
     display: flex;
     justify-content: space-between;
 
-    border-radius: var(--border-radius);
-    background-color: var(--color-netural-800);
+    border: 1px solid transparent;
 }
 
 .linkbook-browser-links-group__header:where(:hover, :focus-within) {
-    z-index: 5;
-    background-color: var(--color-netural-700);
+    border-color: var(--color-primary);
 }
 
 .linkbook-browser-links-group__header-details {
@@ -463,18 +443,12 @@ body {
     gap: var(--spacing-1x);
 
     text-align: left;
-
-    background-color: transparent;
-    border: none;
-
-    cursor: pointer;
 }
 
 .linkbook-browser-links-group__header-title {
     max-width: 75%;
 
     font-size: .875rem;
-    font-weight: var(--fw-medium);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -494,13 +468,7 @@ body {
 }
 
 .linkbook-browser-links-group__header-options {
-    position: absolute;
-    top: 50%;
-    right: var(--spacing-0-5x);
-    transform: translateY(-50%);
-
     display: flex;
-    gap: var(--spacing-0-5x);
 
     opacity: 0;
 }
@@ -509,25 +477,39 @@ body {
     opacity: 1;
 }
 
-.linkbook-browser-links-group__links {
-    padding-left: var(--spacing-2-5x);
+.linkbook-browser-links-group__header-option-icon {
+    width: 32px;
+    height: 32px;
+
+    display: grid;
+    place-items: center;
+
+    border: none;
+    background-color: transparent;
 }
 
 
 /* LINKBOOK BROWSER LINK ITEMS */
 .linkbook-browser-links-group__link-item {
-    position: relative;
+    height: 34px;
+    width: 100%;
 
-    margin: calc(-1 * var(--spacing-0-5x));
-    margin-right: 0; 
-    padding: var(--spacing-0-5x);
+    padding-left: calc(var(--spacing-2x) + 24px);
 
-    border-radius: var(--border-radius);
+    display: flex;
+    align-items: center;
+
+    border: 1px solid transparent;
+    background-color: transparent;
+}
+
+.linkbook-browser-links-group__links > .linkbook-browser-links-group__link-item {
+    
+    padding-left: calc(var(--spacing-2x) + 2 * 24px);
 }
 
 .linkbook-browser-links-group__link-item:where(:hover, :focus-within) {
-    z-index: 5;
-    background-color: var(--color-netural-700);
+    border-color: var(--color-primary);
 }
 
 .linkbook-browser-links-group__link-item-details {
@@ -535,11 +517,6 @@ body {
     display: flex;
     align-items: center;
     gap: var(--spacing-1x);
-
-    background: transparent;
-    border: none;
-
-    cursor: pointer;
 }
 
 .linkbook-browser-links-group__link-item-icon {
@@ -548,7 +525,6 @@ body {
 }
 
 .linkbook-browser-links-group__link-item-name {
-    width: 80%;
     text-align: left;
 
     font-size: .875rem;
@@ -634,8 +610,8 @@ body {
     display: flex;
     flex-direction: column;
 
-    background-color: var(--color-netural-700);
-    border-radius: 0 0 var(--border-radius) var(--border-radius);
+    background-color: var(--color-netural-900);
+    border: 1px solid var(--color-netural-700);
 }
 
 .link-options-menu--disabled {
@@ -657,7 +633,7 @@ body {
 }
 
 .link-options-menu__option:where(:hover, :focus) {
-    background-color: var(--color-netural-600);
+    background-color: var(--color-primary);
 }
 
 
