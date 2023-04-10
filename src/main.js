@@ -1,4 +1,5 @@
 'use strict';
+import { openDB } from 'idb';
 
 class LinksModel {
     #localDB;
@@ -60,7 +61,7 @@ class LinksModel {
     }
 
     async #initializeDatabase() {
-        this.#localDB = await idb.openDB(this.#databaseName, this.#databaseVersion, {
+        this.#localDB = await openDB(this.#databaseName, this.#databaseVersion, {
             upgrade(db) {
                 const links = db.createObjectStore('linkbookLinks', {keyPath: 'id', autoIncrement: true});
                 links.createIndex('parent', 'parent');
