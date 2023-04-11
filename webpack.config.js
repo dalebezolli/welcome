@@ -2,10 +2,12 @@ const path = require('path');
 
 const environment = process.env.NODE_ENV;
 const config = {
-    entry: './src/main.js',
+    entry: {
+        'webapp': './src/webapp.js',
+    },
     output: {
-        path: path.join(__dirname, 'dist'),
-        filename: 'main.bundle.js',
+        path: path.join(__dirname, 'out'),
+        filename: '[name].bundle.js',
     },
     mode: environment,
 };

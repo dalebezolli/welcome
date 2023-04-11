@@ -8,5 +8,5 @@
     "chrome_url_overrides": {
         "newtab": "./index.html"
     },
-    "content_security_policy": "script-src 'self' https://cdn.jsdelivr.net/npm/idb@7/build/umd.js;"
+    "content_security_policy": "script-src 'self' 'unsafe-eval'"
 }
