@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+
+        <script src="./save_link.bundle.js" defer></script>
+        <link rel="stylesheet" href="save_link.css">
+    </head>
+    <body>
+        <form class="save-link-form js-form-main">
+            <h1 class="save-link-form__title">Save Link</h1>
+            <hr class="save-link-form__separator">
+
+            <div class="input-wrapper">
+                <label for="name" class="input-wrapper__label">
+                    Name
+                </label>
+                <input class="input-wrapper__input js-input" type="text" name="name" placeholder="Creative Gibberish" autocomplete="off">
+            </div>
+
+            <div class="input-wrapper">
+                <label for="group" class="input-wrapper__label">
+                    Group
+                </label>
+                <div class="select-wrapper">
+                    <select class="input-wrapper__select js-select" name="group" data-open="false"></select>
+
+                    <svg class="chevron" width="14" height="15" viewBox="0 0 14 15" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M6.38201 11.6179C6.7238 11.9597 7.27888 11.9597 7.62068 11.6179L12.8707 6.36794C13.2125 6.02615 13.2125 5.47107 12.8707 5.12927C12.5289 4.78748 11.9738 4.78748 11.632 5.12927L6.99998 9.7613L2.36794 5.13201C2.02615 4.79021 1.47107 4.79021 1.12927 5.13201C0.787476 5.4738 0.787476 6.02888 1.12927 6.37068L6.37927 11.6207L6.38201 11.6179Z" fill="#BEB9C5"/>
+                    </svg>
+                </div>
+            </div>
+
+            <div class="save-link-form__actions">
+                <button class="button button--primary js-button-save">Save</button>
+                <button class="button js-button-cancel">Cancel</button>
+            </div>
+        </form>
+    </body>
+</html>

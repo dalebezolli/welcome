@@ -1,0 +1,161 @@
+/* RESET */
+
+*, *::before, *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+html, body {
+	min-height: 100%;
+    line-height: 1.5;
+}
+
+img, picture, svg, video {
+	display: block;
+	max-width: 100%;
+}
+
+button, input, textarea, select {
+	font: inherit;
+    color: inherit;
+}
+
+p, h1, h2, h3, h4, h5, h6 {
+	overflow-wrap: break-word;
+}
+
+:root {
+	--color-primary: hsl(263, 77%, 65%);
+
+	--color-netural-100: hsl(0, 0%, 85%);
+	--color-netural-400: hsl(265, 9%, 75%);
+	--color-netural-400-10: hsla(265, 9%, 75%, .1);
+	--color-netural-400-30: hsla(265, 9%, 75%, .3);
+	--color-netural-600: hsl(247, 10%, 34%);
+	--color-netural-700: hsl(248, 12%, 24%);
+	--color-netural-800: hsl(255, 7%, 11%);
+	--color-netural-900: hsl(255, 11%, 7%);
+	--color-netural-900-80: hsla(255, 11%, 7%, .8);
+
+	--color-red-400: hsl(2, 81%, 44%);
+    --color-red-800: hsla(4, 68%, 10%, .6);
+    --color-green-200: hsl(141, 64%, 54%);
+	--color-green-400: hsl(141, 64%, 38%);
+
+	--ff-primary: 'Poppins', sans-serif;
+
+    --fw-light:   300;
+    --fw-primary: 400;
+    --fw-medium:  500;
+    --fw-bold:    600;
+
+    --spacing-0-5x: .25rem;
+	--spacing-1x:   .5rem; 
+	--spacing-2x:   1rem; 
+	--spacing-2-5x: 1.5rem; 
+	--spacing-3x:   2rem; 
+	--spacing-3-5x: 2.5rem; 
+	--spacing-4x:   3rem; 
+	--spacing-5x:   4rem; 
+
+    --icon-sm: 1rem;
+    --icon-md: 1.5rem;
+
+	--border-radius: .25rem;
+}
+
+body {
+    font-family: var(--ff-primary);
+    font-size: .875rem;
+    color: var(--color-netural-400);
+    
+    background-color: var(--color-netural-800);
+}
+
+/* FORM */
+.save-link-form {
+    padding: var(--spacing-2x);
+
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-2x);
+}
+
+.save-link-form__title {
+    font-size: .875rem;
+}
+
+.save-link-form__separator {
+    color: var(--color-netural-700);
+}
+
+.input-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-1x);
+}
+
+.input-wrapper__input {
+    padding: var(--spacing-1x) var(--spacing-2x);
+    
+    border: 1px solid var(--color-netural-700);
+    border-radius: var(--border-radius);
+
+    background-color: var(--color-netural-900);
+}
+
+.select-wrapper {
+    position: relative;
+    width: 100%;
+}
+
+.input-wrapper__select {
+    appearance: none;
+
+    width: 100%;
+    padding: var(--spacing-1x) var(--spacing-2x);
+    
+    border: none;
+    border-radius: var(--border-radius);
+
+    background-color: var(--color-netural-700);
+}
+
+.chevron {
+    position: absolute;
+    top: 50%;
+    right: var(--spacing-2x);
+
+    transform: translateY(-50%) rotate(0deg);
+    transition: transform 150ms ease;
+}
+
+.input-wrapper__select[data-open="true"] + .chevron {
+    transform: translateY(-50%) rotate(180deg);
+}
+
+.save-link-form__actions {
+    display: flex;
+    flex-direction: row-reverse;
+    justify-content: flex-start;
+    gap: var(--spacing-1x);
+}
+
+.button {
+    padding: 6px var(--spacing-2x);
+
+    font-weight: var(--fw-bold);
+    color: var(--color-netural-400);
+    
+    border: none;
+    border-radius: var(--border-radius);
+
+    background-color: var(--color-netural-700);
+    cursor: pointer;
+}
+
+.button--primary {
+    color: var(--color-netural-800);
+    background-color: var(--color-primary);
+}

@@ -2,11 +2,18 @@
     "manifest_version": 2,
     "name": "Welcome - The browser's start menu",
     "version": "0.1",
+    "permissions": ["activeTab"],
     "chrome_settings_overrides": {
         "homepage": "./index.html"
     },
     "chrome_url_overrides": {
         "newtab": "./index.html"
+    },
+    "page_action": {
+        "default_icon": "./img/icon.png",
+        "default_title": "Save link",
+        "default_popup": "./popup/save_link.html",
+        "show_matches": ["<all_urls>"]
     },
     "content_security_policy": "script-src 'self' 'unsafe-eval'"
 }
