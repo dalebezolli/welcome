@@ -1101,7 +1101,3 @@ addEventListener('DOMContentLoaded', _ => {
     model = new LinksModel()
     app = new LinksController(model, new LinkbookView());
 })
-
-function toggleError() {
-    document.querySelector('.global-error-box').classList.toggle('global-error-box--enabled');
-}
