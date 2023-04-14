@@ -1,8 +1,13 @@
 {
     "manifest_version": 2,
-    "name": "Welcome - The browser's start menu",
+    "name": "Welcome",
     "version": "0.1",
     "permissions": ["activeTab"],
+    "browser_specific_settings": {
+        "gecko": {
+            "id": "welcome@productivity.com"
+        }
+    },
     "chrome_settings_overrides": {
         "homepage": "./index.html"
     },

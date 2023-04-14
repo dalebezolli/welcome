@@ -91,7 +91,7 @@ body {
 /* PINNED LINKS DISPLAY */
 
 .pinned-links-display {
-    padding: var(--spacing-3x);
+    padding: var(--spacing-2x);
 
     flex-basis: 100%;
     height: 100%;
@@ -123,7 +123,7 @@ body {
     overflow-y: scroll; 
 
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(275px, 1fr));
     grid-auto-rows: max-content;
     grid-gap: var(--spacing-2x);
 }
@@ -158,10 +158,6 @@ body {
     border-radius: var(--border-radius);
 }
 
-.pinned-group__header:where(:hover, :focus-within) {
-    background-color: var(--color-netural-700);
-}
-
 .pinned-group__title {
     max-width: 80%;
 
@@ -172,14 +168,6 @@ body {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-}
-
-.pinned-group__header-options {
-    opacity: 0;
-}
-
-.pinned-group__header:where(:hover, :focus-within) .pinned-group__header-options {
-    opacity: 1;
 }
 
 .pinned-group__add-group {
@@ -224,27 +212,23 @@ body {
 .pinned-group-link {
     margin: calc(-1 * var(--spacing-0-5x));
     padding: var(--spacing-0-5x);
-
-    display: flex;
-    justify-content: space-between;
-
-    border-radius: var(--border-radius);
-}
-
-.pinned-group-link:where(:hover,:focus-within) {
-    background-color: var(--color-netural-700);
-}
-
-.pinned-group-link__details {
-    max-width: 80%;
+    padding-left: var(--spacing-2-5x);
 
     display: flex;
     align-items: center;
     gap: var(--spacing-1x);
+
+    border: 1px solid transparent;
+
+    cursor: pointer;
+}
+
+.pinned-group-link:where(:hover,:focus-within) {
+    border: 1px solid var(--color-primary);
 }
 
 .pinned-group-link__name {
-    font-size: 1rem;
+    font-size: .875rem;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -253,14 +237,6 @@ body {
 .pinned-group-link__icon {
     width: var(--icon-sm);
     height: var(--icon-sm);
-}
-
-.pinned-group-link__options {
-    opacity: 0;
-}
-
-.pinned-group-link:where(:hover,:focus-within) .pinned-group-link__options {
-    opacity: 1;
 }
 
 /* PINNED LINKNS DISPLAY BUTTONS */
