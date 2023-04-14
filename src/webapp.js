@@ -427,6 +427,7 @@ class LinkbookView {
     #alertboxYesButton;
     #alertboxNoButton;
 
+    #onOpenLink;
     #onOpenLinkDataForm;
     #onOpenOptionsMenu;
     #onGroupEditSave;
@@ -582,6 +583,10 @@ class LinkbookView {
         });
     }
 
+    bindOpenLink(handler) {
+        this.#onOpenLink = handler;
+    }
+
     bindOptionsMenuPin(handler) {
        this.#optionsMenuPin.onclick = handler; 
     }
@@ -617,13 +622,9 @@ class LinkbookView {
                 event.target.classList.contains('options-button__icon') ||
                 event.target.classList.contains('button--small')
             ) return;
-            const url = linkData.link.startsWith('http') ? linkData.link : `https://${linkData.link}`;
 
-            if(event.ctrlKey) {
-                location.assign(url);
-            } else {
-                open(url);
-            }
+            const openInNewTab = !event.ctrlKey;
+            this.#onOpenLink(linkData.link, openInNewTab);
         });
 
         linkRoot.addEventListener('contextmenu', event => {
@@ -706,13 +707,9 @@ class LinkbookView {
                 event.target.classList.contains('options-button__icon') ||
                 event.target.classList.contains('button--small')
             ) return;
-            const url = displayLinkData.link.startsWith('http') ? displayLinkData.link : `https://${displayLinkData.link}`;
 
-            if(event.ctrlKey) {
-                location.assign(url);
-            } else {
-                open(url);
-            }
+            const openInNewTab = !event.ctrlKey;
+            this.#onOpenLink(displayLinkData.link, openInNewTab);
         });
 
         return displayRoot;
@@ -785,7 +782,7 @@ class LinkbookView {
 
             const displayGroupList = this.getElement('.pinned-group__links', displayGroupDisplay);
             for(const child of element.children) {
-             const displayLinkDisplay = this.#createDisplayLinkDisplay(child);
+                const displayLinkDisplay = this.#createDisplayLinkDisplay(child);
                 displayGroupList.append(displayLinkDisplay);
             }
         }
@@ -886,6 +883,7 @@ class LinksController {
         this.#model.bindLinkbookDataChanged(this.#onLinkbookDataChanged.bind(this));
         this.#model.bindErrorHandle(this.#onHandleError.bind(this));
 
+        this.#view.bindOpenLink(this.#onOpenLink.bind(this));
         this.#view.bindOpenLinkDataForm(this.#onOpenLinkDataForm.bind(this));
         this.#view.bindCloseLinkDataForm(this.#onCloseLinkDataForm.bind(this));
         this.#view.bindSaveLinkDataForm(this.#onSaveLinkDataForm.bind(this));
@@ -933,9 +931,38 @@ class LinksController {
         if(linksDisplay.children.length !== 0) displayData.push(linksDisplay);
         if(restDisplay.length !== 0) displayData.push(...restDisplay);
 
+        const groupLinkChildren = displayData[0].children;
+        if(groupLinkChildren.children !== 0) {
+            const quickNavLinks = new Map();
+            groupLinkChildren.forEach((link, index) => {
+                quickNavLinks.set(index + 1, link.link);
+            });
+
+            document.addEventListener('keydown', event => {
+                if(!event.ctrlKey) return;
+                const quickNavElementId = parseInt(event.key);
+
+                if(isNaN(quickNavElementId)) return;
+                if(!quickNavLinks.has(quickNavElementId)) return;
+
+                this.#onOpenLink(quickNavLinks.get(quickNavElementId), !event.altKey);
+            });
+        }
+
+
         this.#view.displayAllLinksCategory(data);
         this.#view.displayPinnedLinksCategory(displayData);
         this.#view.displayPinnedLinksDisplay(displayData);
+    }
+
+    #onOpenLink(link, newTab) {
+        const url = link.startsWith('http') ? link : `https://${link}`;
+
+        if(!newTab) {
+            location.assign(url);
+        } else {
+            open(url);
+        }
     }
     
     #onOpenLinkDataForm(parentId, isPinned) {
