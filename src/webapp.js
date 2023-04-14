@@ -708,7 +708,7 @@ class LinkbookView {
                 event.target.classList.contains('button--small')
             ) return;
 
-            const openInNewTab = !event.ctrlKey;
+            const openInNewTab = !event.altKey;
             this.#onOpenLink(displayLinkData.link, openInNewTab);
         });
 
