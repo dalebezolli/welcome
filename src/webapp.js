@@ -432,6 +432,9 @@ class LinkbookView {
     #onOpenOptionsMenu;
     #onGroupEditSave;
 
+    #selectedElement;
+    #selectedType;
+
     constructor() {
         this.#app = this.getElement('.content');
         this.#pinnedLinksCategory = this.getElement('#linkbook-category-pinned-links');
@@ -464,6 +467,18 @@ class LinkbookView {
         this.#alertboxPrompt = this.getElement('.alertbox__text');
         this.#alertboxYesButton = this.getElement('.alertbox__button--yes');
         this.#alertboxNoButton = this.getElement('.alertbox__button--no');
+
+
+        this.#pinnedLinksList.addEventListener('mousemove', event => {
+            if(event.buttons !== 1) return;
+            this.#pinnedLinksList.classList.add('js-move');
+        });
+
+        this.#allLinksList.addEventListener('mousemove', event => {
+            if(event.buttons !== 1) return;
+            this.#allLinksList.classList.add('js-move');
+            if(this.#selectedElement) this.#selectedElement.classList.add('js-selected-element');
+        });
     }
 
     getElement(selector, parent) {
@@ -613,6 +628,7 @@ class LinkbookView {
         linkNameText.textContent = linkData.name;
 
         linkRoot.setAttribute('data-id', `${linkData.id}-${linkData.type}`);
+        linkRoot.setAttribute('data-location', location);
 
         linkRoot.append(linkDetails);
         linkDetails.append(linkImg, linkNameText);
@@ -633,10 +649,51 @@ class LinkbookView {
             this.#onOpenOptionsMenu(linkRoot, linkData.type, linkData.id, isPinned, {pin: !isPinned, unpin: isPinned && location === 'pinned', edit: true, delete: true});
         });
 
+        linkRoot.addEventListener('mousemove', event => {
+            if(!this.#selectedElement) return;
+            if(this.#selectedType === 'group' && linkData.parent !== 0) return;
+            const rootData = linkRoot.getBoundingClientRect();
+
+            event.currentTarget.classList.remove('js-hovered-link-top');
+            event.currentTarget.classList.remove('js-hovered-link-bottom');
+            if(event.clientY < rootData.y + rootData.height / 2) {
+                event.currentTarget.classList.add('js-hovered-link-top');
+            } else {
+                event.currentTarget.classList.add('js-hovered-link-bottom');
+            }
+        });
+
+        linkRoot.addEventListener('mouseleave', event => {
+            if(!this.#selectedElement) return;
+            event.currentTarget.classList.remove('js-hovered-link-top');
+            event.currentTarget.classList.remove('js-hovered-link-bottom');
+        });
+
+        linkRoot.addEventListener('mousedown', event => {
+            event.stopPropagation();
+            console.log('select', event.currentTarget.getAttribute('data-id'));
+            this.#selectedElement = event.currentTarget;
+            this.#selectedType = 'link';
+        });
+
+        linkRoot.addEventListener('mouseup', event => {
+            console.log('deselect', event.currentTarget.getAttribute('data-id'));
+
+            linkRoot.classList.remove('js-hovered-link-top');
+            linkRoot.classList.remove('js-hovered-link-bottom');
+            this.#pinnedLinksList.classList.remove('js-move');
+            this.#allLinksList.classList.remove('js-move');
+            if(this.#selectedElement) {
+                this.#selectedElement.classList.remove('js-selected-element');
+                this.#selectedElement = null;
+                this.#selectedType = '';
+            }
+        });
+
         return linkRoot;
     }
 
-    #createGroupDisplay(groupData, isPinned) {
+    #createGroupDisplay(groupData, isPinned, location) {
         const groupRoot = this.createElement('div', 'linkbook-browser-links-group');
         const groupHeader = this.createElement('div', 'linkbook-browser-links-group__header');
         const groupHeaderDetails = this.createElement('div', 'linkbook-browser-links-group__header-details');
@@ -655,6 +712,7 @@ class LinkbookView {
         groupHeaderOptionAddLinkButton.innerHTML = '<svg class="new-link-button__icon new-link-button__icon--secondary" width="16" height="13" viewBox="0 0 16 13"><path d="M14.07 6.7925C15.4825 5.38 15.4825 3.0925 14.07 1.68C12.82 0.430004 10.85 0.267504 9.4125 1.295L9.3725 1.3225C9.0125 1.58 8.93 2.08 9.1875 2.4375C9.445 2.795 9.945 2.88 10.3025 2.6225L10.3425 2.595C11.145 2.0225 12.2425 2.1125 12.9375 2.81C13.725 3.5975 13.725 4.8725 12.9375 5.66L10.1325 8.47C9.345 9.2575 8.07 9.2575 7.2825 8.47C6.585 7.7725 6.495 6.675 7.0675 5.875L7.095 5.835C7.3525 5.475 7.2675 4.975 6.91 4.72C6.5525 4.465 6.05001 4.5475 5.79501 4.905L5.7675 4.945C4.7375 6.38 4.90001 8.35 6.15001 9.6C7.56251 11.0125 9.85 11.0125 11.2625 9.6L14.07 6.7925ZM1.08 6.2075C-0.332495 7.62 -0.332495 9.9075 1.08 11.32C2.33 12.57 4.30001 12.7325 5.73751 11.705L5.77751 11.6775C6.13751 11.42 6.22001 10.92 5.96251 10.5625C5.70501 10.205 5.205 10.12 4.8475 10.3775L4.80751 10.405C4.00501 10.9775 2.9075 10.8875 2.2125 10.19C1.425 9.4 1.425 8.125 2.2125 7.3375L5.0175 4.53C5.805 3.7425 7.08 3.7425 7.8675 4.53C8.56501 5.2275 8.655 6.325 8.0825 7.1275L8.05501 7.1675C7.7975 7.5275 7.8825 8.0275 8.24 8.2825C8.5975 8.5375 9.10001 8.455 9.35501 8.0975L9.3825 8.0575C10.4125 6.62 10.25 4.65 9 3.4C7.5875 1.9875 5.30001 1.9875 3.88751 3.4L1.08 6.2075Z" /></svg>';
 
         groupRoot.setAttribute('data-id', `${groupData.id}-${groupData.type}-${isPinned ? 'pinned' : 'all' }`);
+        groupRoot.setAttribute('data-location', location);
 
         groupRoot.append(groupHeader, groupLinkList);
         groupHeader.append(groupHeaderDetails, groupHeaderOptions);
@@ -665,6 +723,59 @@ class LinkbookView {
             event.preventDefault();
             event.stopPropagation();
             this.#onOpenOptionsMenu(groupRoot, groupData.type, groupData.id, isPinned, {pin: !isPinned, unpin: isPinned, edit: true, delete: true});
+        });
+
+        groupRoot.addEventListener('mousemove', event => {
+            if(event.buttons !== 1) return;
+            if(this.#selectedType === 'link') return;
+            const rootData = groupRoot.getBoundingClientRect();
+
+            groupRoot.classList.remove('js-hovered-group-top');
+            groupRoot.classList.remove('js-hovered-group-bottom');
+            if(event.clientY < rootData.y + rootData.height / 2) {
+                groupRoot.classList.add('js-hovered-group-top');
+            } else {
+                groupRoot.classList.add('js-hovered-group-bottom');
+            }
+        });
+
+        groupHeader.addEventListener('mouseenter', event => {
+            if(!this.#selectedElement) return;
+            if(this.#selectedType !== 'link') return;
+            event.currentTarget.classList.add('js-hovered-group');
+        });
+
+        groupHeader.addEventListener('mouseleave', event => {
+            if(!this.#selectedElement) return;
+            event.currentTarget.classList.remove('js-hovered-group');
+        });
+
+        groupRoot.addEventListener('mouseleave', event => {
+            if(!this.#selectedElement) return;
+            groupRoot.classList.remove('js-hovered-group-top');
+            groupRoot.classList.remove('js-hovered-group-bottom');
+        });
+
+        groupRoot.addEventListener('mousedown', event => {
+            console.log('select', event.currentTarget.getAttribute('data-id'));
+            event.currentTarget.classList.add('js-selected-element');
+            this.#selectedElement = event.currentTarget;
+            this.#selectedType = 'group';
+        });
+
+        groupRoot.addEventListener('mouseup', event => {
+            console.log('deselect', event.currentTarget.getAttribute('data-id'));
+
+            groupHeader.classList.remove('js-hovered-group');
+            groupRoot.classList.remove('js-hovered-group-top');
+            groupRoot.classList.remove('js-hovered-group-bottom');
+            this.#pinnedLinksList.classList.remove('js-move');
+            this.#allLinksList.classList.remove('js-move');
+            if(this.#selectedElement) {
+                this.#selectedElement.classList.remove('js-selected-element');
+                this.#selectedElement = null;
+                this.#selectedType = '';
+            }
         });
 
         return groupRoot;
@@ -741,7 +852,7 @@ class LinkbookView {
                 const linkDisplay = this.#createLinkDisplay(element, false, 'all');
                 this.#allLinksList.append(linkDisplay);
             } else {
-                const groupDisplay = this.#createGroupDisplay(element, false);
+                const groupDisplay = this.#createGroupDisplay(element, false, 'all');
                 this.#allLinksList.append(groupDisplay);
 
                 const groupList = this.getElement('.linkbook-browser-links-group__links', groupDisplay);
@@ -759,7 +870,7 @@ class LinkbookView {
         }
 
         for(const element of elements) {
-            const groupDisplay = this.#createGroupDisplay(element, true);
+            const groupDisplay = this.#createGroupDisplay(element, true, 'pinned');
             this.#pinnedLinksList.append(groupDisplay);
 
             const groupList = this.getElement('.linkbook-browser-links-group__links', groupDisplay);
@@ -931,22 +1042,24 @@ class LinksController {
         if(linksDisplay.children.length !== 0) displayData.push(linksDisplay);
         if(restDisplay.length !== 0) displayData.push(...restDisplay);
 
-        const groupLinkChildren = displayData[0].children;
-        if(groupLinkChildren.children !== 0) {
-            const quickNavLinks = new Map();
-            groupLinkChildren.forEach((link, index) => {
-                quickNavLinks.set(index + 1, link.link);
-            });
+        if(displayData.length !== 0) {
+            const groupLinkChildren = displayData[0].children;
+            if(groupLinkChildren.children !== 0) {
+                const quickNavLinks = new Map();
+                groupLinkChildren.forEach((link, index) => {
+                    quickNavLinks.set(index + 1, link.link);
+                });
 
-            document.addEventListener('keydown', event => {
-                if(!event.ctrlKey) return;
-                const quickNavElementId = parseInt(event.key);
+                document.addEventListener('keydown', event => {
+                    if(!event.ctrlKey) return;
+                    const quickNavElementId = parseInt(event.key);
 
-                if(isNaN(quickNavElementId)) return;
-                if(!quickNavLinks.has(quickNavElementId)) return;
+                    if(isNaN(quickNavElementId)) return;
+                    if(!quickNavLinks.has(quickNavElementId)) return;
 
-                this.#onOpenLink(quickNavLinks.get(quickNavElementId), !event.altKey);
-            });
+                    this.#onOpenLink(quickNavLinks.get(quickNavElementId), !event.altKey);
+                });
+            }
         }
 
 
