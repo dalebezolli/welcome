@@ -438,6 +438,7 @@ class LinkbookView {
     #onOpenOptionsMenu;
     #onGroupEditSave;
     #onSelectForRelocation;
+    #onRelocateActivate;
     #onRelocateSuccess;
 
     #selectedElement;
@@ -630,6 +631,10 @@ class LinkbookView {
         this.#onSelectForRelocation = handler;
     }
 
+    bindRelocationActivate(handler) {
+        this.#onRelocateActivate = handler;
+    }
+
     bindRelocateSuccess(handler) {
         this.#onRelocateSuccess = handler;
     }
@@ -655,7 +660,7 @@ class LinkbookView {
         linkRoot.append(linkDetails);
         linkDetails.append(linkImg, linkNameText);
 
-        linkRoot.addEventListener('click', event => {
+        linkRoot.addEventListener('mouseup', event => {
             if(
                 event.target.classList.contains('options-button__icon') ||
                 event.target.classList.contains('button--small')
@@ -683,6 +688,8 @@ class LinkbookView {
             } else {
                 event.currentTarget.classList.add('js-hovered-link-bottom');
             }
+
+            this.#onRelocateActivate();
         });
 
         linkRoot.addEventListener('mouseleave', event => {
@@ -771,6 +778,8 @@ class LinkbookView {
             } else {
                 groupRoot.classList.add('js-hovered-group-bottom');
             }
+
+            this.#onRelocateActivate();
         });
 
         groupHeader.addEventListener('mouseenter', event => {
@@ -1034,6 +1043,7 @@ class LinksController {
     #moreOptionsState;
 
     #relocationData;
+    #isRelocatable;
 
     constructor(model, view) {
         this.#model = model;
@@ -1057,6 +1067,7 @@ class LinksController {
         this.#view.bindOptionsMenuDelete(this.#onOptionsMenuDelete.bind(this));
 
         this.#view.bindSelectForRelocation(this.#onSelectForRelocation.bind(this));
+        this.#view.bindRelocationActivate(this.#onRelocateActivate.bind(this));
         this.#view.bindRelocateSuccess(this.#onRelocateSuccess.bind(this));
         this.#view.bindRelocateCancel(this.#onRelocateCancel.bind(this));
 
@@ -1121,6 +1132,10 @@ class LinksController {
     }
 
     #onOpenLink(link, newTab) {
+        if(this.#isRelocatable) {
+            this.#isRelocatable = false;
+            return;
+        }
         const url = link.startsWith('http') ? link : `https://${link}`;
 
         if(!newTab) {
@@ -1128,6 +1143,7 @@ class LinksController {
         } else {
             open(url);
         }
+
     }
     
     #onOpenLinkDataForm(parentId, isPinned) {
@@ -1229,13 +1245,19 @@ class LinksController {
         this.#relocationData = {selectedId: selectedElementId, selectedType: selectedElementType};
     }
 
+    #onRelocateActivate() {
+        this.#isRelocatable = true;
+    }
+
     #onRelocateCancel() {
         if(!this.#relocationData) return;
         this.#relocationData = null;
+        this.#isRelocatable = false;
+        console.log('clenup reloaction');
     }
 
     #onRelocateSuccess(positionElementId, positionElementType, selectedElementLocation) {
-        if(!this.#relocationData || (this.#relocationData.selectedType === 'link' && this.#relocationData.newPositionId)) return;
+        if(this.#isRelocatable || !this.#relocationData || (this.#relocationData.selectedType === 'link' && this.#relocationData.newPositionId)) return;
         this.#relocationData.newPositionId = positionElementId;
         this.#relocationData.newPositionType = positionElementType;
         this.#relocationData.newPositionDirection = selectedElementLocation;
