@@ -9,6 +9,9 @@ class LinksModel {
     #onLinkbookDataChanged;
     #onErrorHandle;
 
+    #allPosition;
+    #pinnedPosition;
+
     constructor() {
         this.#databaseName = 'Primary';
         this.#databaseVersion = '2';
@@ -25,10 +28,14 @@ class LinksModel {
     async compileLinkbookData() {
         const links = await this.getLinks();
         const groups = await this.getGroups();
+        this.#allPosition = 0;
+        this.#pinnedPosition = 0;
 
         const groupChildren = new Map();
         for(const link of links) {
             const typedLink = {...link, type: 'link'};
+            if(link.allPosition > this.#allPosition) this.#allPosition = link.allPosition;
+            if(link.pinnedPosition > this.#pinnedPosition) this.#pinnedPosition = link.pinnedPosition;
             if(!groupChildren.get(link.parent)) {
                 groupChildren.set(link.parent, [typedLink]);
             } else {
@@ -114,7 +121,20 @@ class LinksModel {
             isPinned = false;
         }
 
-        linkData = {name, link, parent, isPinned};
+        let allPosition = this.#allPosition + 1000;
+        if(parent !== 0) {
+            allPosition = (await this.getGroup(parent)).groupPosition + 1000;
+            await this.#editGroupPosition(parent, allPosition);
+        }
+
+        linkData = {
+            name, 
+            link, 
+            parent, 
+            isPinned,
+            allPosition,
+            pinnedPosition: isPinned ? this.#pinnedPosition + 1000: 0
+        };
 
         try {
             linkId = await this.#localDB.put('linkbookLinks', linkData);
@@ -261,7 +281,13 @@ class LinksModel {
             isPinned = false;
         }
 
-        group = {name: '', isPinned};
+        group = {
+            name: '', 
+            isPinned,
+            allPosition: this.#allPosition + 1000,
+            pinnedPosition: isPinned ? this.#pinnedPosition + 1000: 0,
+            groupPosition: 0
+        };
 
         try {
             groupId = await this.#localDB.put('linkbookGroups', group);
@@ -392,6 +418,28 @@ class LinksModel {
         }
 
         this.#onLinkbookDataChanged(await this.compileLinkbookData());
+        return newGroup;
+    }
+
+    async #editGroupPosition(groupId, newPosition) {
+        if(!this.#localDB) await this.#initializeDatabase();
+        
+        const oldGroup = await this.getGroup(groupId);
+        if(!oldGroup) {
+            nullGroupError = new SystemError('Unable to edit group as it might have been deleted!');
+            this.#onErrorHandle(nullGroupError);
+            return null;
+        }
+        const newGroup = {...oldGroup, groupPosition: newPosition};
+
+        try {
+            await this.#localDB.put('linkbookGroups', newGroup);
+        } catch(err) {
+            const editGroupError = new SystemError(err);
+            this.#onErrorHandle(editGroupError);
+            return null;
+        }
+
         return newGroup;
     }
 
@@ -652,7 +700,7 @@ class LinkbookView {
         const linkNameText = this.createElement('span', 'linkbook-browser-links-group__link-item-name');
 
         linkImg.src = `https://www.google.com/s2/favicons?domain=${linkData.link}&sz=64`;
-        linkNameText.textContent = linkData.name;
+        linkNameText.textContent = `${linkData.name}:${!isPinned ? linkData.allPosition : linkData.pinnedPosition}`;
 
         linkRoot.setAttribute('data-id', `${linkData.id}-${linkData.type}`);
         linkRoot.setAttribute('data-location', location);
@@ -747,7 +795,7 @@ class LinkbookView {
                 <path d="M3.5 13.5H12.5C13.3273 13.5 14 12.8273 14 12V6C14 5.17266 13.3273 4.5 12.5 4.5H8.75C8.51328 4.5 8.29062 4.38984 8.15 4.2L7.7 3.6C7.41641 3.22266 6.97109 3 6.5 3H3.5C2.67266 3 2 3.67266 2 4.5V12C2 12.8273 2.67266 13.5 3.5 13.5Z" fill="#E6E6E6"/>
             </svg>
             <span class="linkbook-browser-links-group__header-title">
-                ${groupData.name}
+                ${groupData.name}:${!isPinned ? groupData.allPosition : groupData.pinnedPosition}
             </span>
         `;
         groupHeaderOptionAddLinkButton.innerHTML = '<svg class="new-link-button__icon new-link-button__icon--secondary" width="16" height="13" viewBox="0 0 16 13"><path d="M14.07 6.7925C15.4825 5.38 15.4825 3.0925 14.07 1.68C12.82 0.430004 10.85 0.267504 9.4125 1.295L9.3725 1.3225C9.0125 1.58 8.93 2.08 9.1875 2.4375C9.445 2.795 9.945 2.88 10.3025 2.6225L10.3425 2.595C11.145 2.0225 12.2425 2.1125 12.9375 2.81C13.725 3.5975 13.725 4.8725 12.9375 5.66L10.1325 8.47C9.345 9.2575 8.07 9.2575 7.2825 8.47C6.585 7.7725 6.495 6.675 7.0675 5.875L7.095 5.835C7.3525 5.475 7.2675 4.975 6.91 4.72C6.5525 4.465 6.05001 4.5475 5.79501 4.905L5.7675 4.945C4.7375 6.38 4.90001 8.35 6.15001 9.6C7.56251 11.0125 9.85 11.0125 11.2625 9.6L14.07 6.7925ZM1.08 6.2075C-0.332495 7.62 -0.332495 9.9075 1.08 11.32C2.33 12.57 4.30001 12.7325 5.73751 11.705L5.77751 11.6775C6.13751 11.42 6.22001 10.92 5.96251 10.5625C5.70501 10.205 5.205 10.12 4.8475 10.3775L4.80751 10.405C4.00501 10.9775 2.9075 10.8875 2.2125 10.19C1.425 9.4 1.425 8.125 2.2125 7.3375L5.0175 4.53C5.805 3.7425 7.08 3.7425 7.8675 4.53C8.56501 5.2275 8.655 6.325 8.0825 7.1275L8.05501 7.1675C7.7975 7.5275 7.8825 8.0275 8.24 8.2825C8.5975 8.5375 9.10001 8.455 9.35501 8.0975L9.3825 8.0575C10.4125 6.62 10.25 4.65 9 3.4C7.5875 1.9875 5.30001 1.9875 3.88751 3.4L1.08 6.2075Z" /></svg>';
