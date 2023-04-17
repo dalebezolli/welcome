@@ -65,6 +65,8 @@ class LinksModel {
             upgrade(db) {
                 const links = db.createObjectStore('linkbookLinks', {keyPath: 'id', autoIncrement: true});
                 links.createIndex('parent', 'parent');
+                links.createIndex('allPosition', 'allPosition');
+                links.createIndex('pinnedPosition', 'pinnedPosition');
                 db.createObjectStore('linkbookGroups', {keyPath: 'id', autoIncrement: true});
             }
         });
@@ -392,6 +394,10 @@ class LinksModel {
         this.#onLinkbookDataChanged(await this.compileLinkbookData());
         return newGroup;
     }
+
+    relocate(relocationData) {
+        console.log(relocationData);
+    }
 }
 
 class LinkbookView {
@@ -431,6 +437,8 @@ class LinkbookView {
     #onOpenLinkDataForm;
     #onOpenOptionsMenu;
     #onGroupEditSave;
+    #onSelectForRelocation;
+    #onRelocateSuccess;
 
     #selectedElement;
     #selectedType;
@@ -618,6 +626,20 @@ class LinkbookView {
         this.#optionsMenuDelete.onclick = handler;
     }
 
+    bindSelectForRelocation(handler) {
+        this.#onSelectForRelocation = handler;
+    }
+
+    bindRelocateSuccess(handler) {
+        this.#onRelocateSuccess = handler;
+    }
+
+    bindRelocateCancel(handler) {
+        this.#app.addEventListener('mouseup', event => {
+            handler();
+        });
+    }
+
     #createLinkDisplay(linkData, isPinned, location) {
         const linkRoot = this.createElement('button', 'linkbook-browser-links-group__link-item');
         const linkDetails = this.createElement('div', 'linkbook-browser-links-group__link-item-details');
@@ -674,10 +696,22 @@ class LinkbookView {
             console.log('select', event.currentTarget.getAttribute('data-id'));
             this.#selectedElement = event.currentTarget;
             this.#selectedType = 'link';
+            this.#onSelectForRelocation(linkData.id, 'link');
         });
 
         linkRoot.addEventListener('mouseup', event => {
             console.log('deselect', event.currentTarget.getAttribute('data-id'));
+            const elementData = event.currentTarget.getAttribute('data-id').split('-');
+            let position = null;
+
+            const rootData = linkRoot.getBoundingClientRect();
+            if(event.clientY < rootData.y + rootData.height / 2) {
+                position = 'below';
+            } else {
+                position = 'above';
+            }
+
+            this.#onRelocateSuccess(elementData[0], elementData[1], position);
 
             linkRoot.classList.remove('js-hovered-link-top');
             linkRoot.classList.remove('js-hovered-link-bottom');
@@ -761,10 +795,22 @@ class LinkbookView {
             event.currentTarget.classList.add('js-selected-element');
             this.#selectedElement = event.currentTarget;
             this.#selectedType = 'group';
+            this.#onSelectForRelocation(groupData.id, 'group');
         });
 
         groupRoot.addEventListener('mouseup', event => {
             console.log('deselect', event.currentTarget.getAttribute('data-id'));
+            const elementData = event.currentTarget.getAttribute('data-id').split('-');
+            let position;
+
+            const rootData = groupRoot.getBoundingClientRect();
+            if(event.clientY < rootData.y + rootData.height / 2) {
+                position = 'below';
+            } else {
+                position = 'above';
+            }
+
+            this.#onRelocateSuccess(elementData[0], elementData[1], position);
 
             groupHeader.classList.remove('js-hovered-group');
             groupRoot.classList.remove('js-hovered-group-top');
@@ -987,6 +1033,8 @@ class LinksController {
     #newLinkData;
     #moreOptionsState;
 
+    #relocationData;
+
     constructor(model, view) {
         this.#model = model;
         this.#view = view;
@@ -1007,6 +1055,10 @@ class LinksController {
         this.#view.bindOptionsMenuUnpin(this.#onOptionsMenuUnpin.bind(this));
         this.#view.bindOptionsMenuEdit(this.#onOptionsMenuEdit.bind(this));
         this.#view.bindOptionsMenuDelete(this.#onOptionsMenuDelete.bind(this));
+
+        this.#view.bindSelectForRelocation(this.#onSelectForRelocation.bind(this));
+        this.#view.bindRelocateSuccess(this.#onRelocateSuccess.bind(this));
+        this.#view.bindRelocateCancel(this.#onRelocateCancel.bind(this));
 
         (async () => {
             const groups = await this.#model.getGroups();
@@ -1171,6 +1223,24 @@ class LinksController {
                 }
             })
         }
+    }
+
+    #onSelectForRelocation(selectedElementId, selectedElementType) {
+        this.#relocationData = {selectedId: selectedElementId, selectedType: selectedElementType};
+    }
+
+    #onRelocateCancel() {
+        if(!this.#relocationData) return;
+        this.#relocationData = null;
+    }
+
+    #onRelocateSuccess(positionElementId, positionElementType, selectedElementLocation) {
+        if(!this.#relocationData || (this.#relocationData.selectedType === 'link' && this.#relocationData.newPositionId)) return;
+        this.#relocationData.newPositionId = positionElementId;
+        this.#relocationData.newPositionType = positionElementType;
+        this.#relocationData.newPositionDirection = selectedElementLocation;
+
+        this.#model.relocate(this.#relocationData);
     }
 
     #onHandleError(error) {
