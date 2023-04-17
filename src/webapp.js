@@ -708,7 +708,13 @@ class LinkbookView {
         linkRoot.append(linkDetails);
         linkDetails.append(linkImg, linkNameText);
 
+        let isOpenable = true;
+
         linkRoot.addEventListener('mouseup', event => {
+            if(!isOpenable) {
+                isOpenable = true;
+                return;
+            }
             if(
                 event.target.classList.contains('options-button__icon') ||
                 event.target.classList.contains('button--small')
@@ -721,6 +727,8 @@ class LinkbookView {
         linkRoot.addEventListener('contextmenu', event => {
             event.preventDefault();
             event.stopPropagation();
+
+            isOpenable = false;
             this.#onOpenOptionsMenu(linkRoot, linkData.type, linkData.id, isPinned, {pin: !isPinned, unpin: isPinned && location === 'pinned', edit: true, delete: true});
         });
 
