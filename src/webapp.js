@@ -15,9 +15,7 @@ class LinksModel {
     constructor() {
         this.#databaseName = 'Primary';
         this.#databaseVersion = '2';
-    }
-    
-    bindLinkbookDataChanged(callback) {
+    } bindLinkbookDataChanged(callback) {
         this.#onLinkbookDataChanged = callback;
     }
 
@@ -443,8 +441,12 @@ class LinksModel {
         return newGroup;
     }
 
-    relocate(relocationData) {
+    async relocate(relocationData) {
         console.log(relocationData);
+        if(relocationData.selectedType === 'link' && relocationData.newPositionType === 'link') {
+            // Organize Links n shit you know
+        } else if(relocationData === 'link' && relocationData.newPositionType === 'group') {
+        }
     }
 }
 
@@ -1189,7 +1191,6 @@ class LinksController {
 
     #onOpenLink(link, newTab) {
         if(this.#isRelocatable) {
-            this.#isRelocatable = false;
             return;
         }
         const url = link.startsWith('http') ? link : `https://${link}`;
@@ -1309,11 +1310,10 @@ class LinksController {
         if(!this.#relocationData) return;
         this.#relocationData = null;
         this.#isRelocatable = false;
-        console.log('clenup reloaction');
     }
 
     #onRelocateSuccess(positionElementId, positionElementType, selectedElementLocation) {
-        if(this.#isRelocatable || !this.#relocationData || (this.#relocationData.selectedType === 'link' && this.#relocationData.newPositionId)) return;
+        if(!this.#isRelocatable || !this.#relocationData || (this.#relocationData.selectedType === 'link' && this.#relocationData.newPositionId)) return;
         this.#relocationData.newPositionId = positionElementId;
         this.#relocationData.newPositionType = positionElementType;
         this.#relocationData.newPositionDirection = selectedElementLocation;
