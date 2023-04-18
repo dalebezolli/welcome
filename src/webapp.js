@@ -781,7 +781,7 @@ class LinkbookView {
                 position = 'above';
             }
 
-            this.#onRelocateSuccess(elementData[0], elementData[1], position);
+            this.#onRelocateSuccess(parseInt(elementData[0]), elementData[1], position);
 
             linkRoot.classList.remove('js-hovered-link-top');
             linkRoot.classList.remove('js-hovered-link-bottom');
