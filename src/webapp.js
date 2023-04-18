@@ -42,6 +42,8 @@ class LinksModel {
         }
 
         for(const group of groups) {
+            if(group.allPosition > this.#allPosition) this.#allPosition = group.allPosition;
+            if(group.pinnedPosition > this.#pinnedPosition) this.#pinnedPosition = group.pinnedPosition;
             if(groupChildren.has(group.id)) continue;
             groupChildren.set(group.id, []);       
         }
@@ -444,8 +446,11 @@ class LinksModel {
     async relocate(relocationData) {
         console.log(relocationData);
         if(relocationData.selectedType === 'link' && relocationData.newPositionType === 'link') {
-            // Organize Links n shit you know
-        } else if(relocationData === 'link' && relocationData.newPositionType === 'group') {
+            console.log('link relocation structure');
+        } else if(relocationData.selectedType === 'link' && relocationData.newPositionType === 'group') {
+            console.log('link to group relocation structure');
+        } else {
+            console.log('group relocation structure');
         }
     }
 }
