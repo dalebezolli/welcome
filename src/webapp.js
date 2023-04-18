@@ -1141,7 +1141,16 @@ class LinksController {
     }
 
     #onLinkbookDataChanged(data) {
-        const linksDisplay = {id: 0, type: 'group', name: 'Links', isPinned: 'true', children: []};
+        const linksDisplay = {
+            id: 0, 
+            type: 'group', 
+            name: 'Links', 
+            isPinned: 'true', 
+            children: [], 
+            pinnedPosition: 0,
+            groupPosition: 0
+            
+        };
         const restDisplay = [];
         for(const element of data) {
             if(element.type === 'link') {
