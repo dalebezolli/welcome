@@ -24,23 +24,13 @@ class LinksModel {
     }
 
     async compileLinkbookData() {
-        const links = await this.getLinks();
-        const groups = await this.getGroups();
+        const links = await this.getLinksIndexedByAllPosition();
+        const groups = await this.getGroupsIndexedByAllPosition();
         this.#allPosition = 0;
         this.#pinnedPosition = 0;
 
         const groupChildren = new Map();
-        for(const link of links) {
-            const typedLink = {...link, type: 'link'};
-            if(link.allPosition > this.#allPosition) this.#allPosition = link.allPosition;
-            if(link.pinnedPosition > this.#pinnedPosition) this.#pinnedPosition = link.pinnedPosition;
-            if(!groupChildren.get(link.parent)) {
-                groupChildren.set(link.parent, [typedLink]);
-            } else {
-                groupChildren.set(link.parent, [...groupChildren.get(link.parent), typedLink]);
-            }
-        }
-
+        groupChildren.set(0, []);       
         for(const group of groups) {
             if(group.allPosition > this.#allPosition) this.#allPosition = group.allPosition;
             if(group.pinnedPosition > this.#pinnedPosition) this.#pinnedPosition = group.pinnedPosition;
@@ -48,20 +38,49 @@ class LinksModel {
             groupChildren.set(group.id, []);       
         }
 
-        const data = [];
+        for(const link of links) {
+            const typedLink = {...link, type: 'link'};
+            if(link.parent === 0 && link.allPosition > this.#allPosition) this.#allPosition = link.allPosition;
+            if(link.parent === 0 && link.pinnedPosition > this.#pinnedPosition) this.#pinnedPosition = link.pinnedPosition;
+            groupChildren.set(link.parent, [...groupChildren.get(link.parent), typedLink]);
+        }
+
+        const groupArray = [];
+        let baseLinkArray;
         for(const [groupId, children] of groupChildren) {
-            let parent;
             if(groupId === 0) {
-                parent = data;
-            } else {
-                const group = {...await this.getGroup(groupId), type: 'group', children: []};
-                parent = group.children;
-                data.push(group);
-            }
+                baseLinkArray = children;
+                continue;
+            }                 
+
+            const group = {...await this.getGroup(groupId), type: 'group', children: []};
+            groupArray.push(group);
 
             for(const link of children) {
-                parent.push(link);
+                group.children.push(link);
             }
+        }
+
+        let data = [];
+        let i = 0, j = 0;
+        for(; i < groupArray.length && j < baseLinkArray.length; ) {
+            if(groupArray[i].allPosition < baseLinkArray[j].allPosition) {
+                data.push(groupArray[i]);
+                i++;
+            } else {
+                data.push(baseLinkArray[j]);
+                j++;
+            }
+        }
+
+        while(i < groupArray.length) {
+            data.push(groupArray[i]);
+            i++;
+        }
+
+        while(j < baseLinkArray.length) {
+            data.push(baseLinkArray[j]);
+            j++;
         }
 
         return data;
@@ -74,7 +93,9 @@ class LinksModel {
                 links.createIndex('parent', 'parent');
                 links.createIndex('allPosition', 'allPosition');
                 links.createIndex('pinnedPosition', 'pinnedPosition');
-                db.createObjectStore('linkbookGroups', {keyPath: 'id', autoIncrement: true});
+                const groups = db.createObjectStore('linkbookGroups', {keyPath: 'id', autoIncrement: true});
+                groups.createIndex('allPosition', 'allPosition');
+                groups.createIndex('pinnedPosition', 'pinnedPosition');
             }
         });
     }
@@ -124,7 +145,7 @@ class LinksModel {
         let allPosition = this.#allPosition + 1000;
         if(parent !== 0) {
             allPosition = (await this.getGroup(parent)).groupPosition + 1000;
-            await this.#editGroupPosition(parent, allPosition);
+            await this.#editGroupElementPosition(parent, allPosition);
         }
 
         linkData = {
@@ -177,6 +198,22 @@ class LinksModel {
         }
 
         return links;
+    }
+
+    async getLinksIndexedByAllPosition() {
+        if(!this.#localDB) await this.#initializeDatabase();
+        let data;
+
+        try {
+            data = await this.#localDB.getAllFromIndex('linkbookLinks', 'allPosition');
+            if(!data) data = [];
+        } catch(err) {
+            const getLinkError = new SystemError(err);
+            this.#onErrorHandle(getLinkError);
+            data = [];
+        }
+
+        return data;
     }
 
     async editLinkNameAndLink(linkId, newName, newLink) {
@@ -272,6 +309,86 @@ class LinksModel {
         return linkData;
     }
 
+    async editLinkPosition(linkId, position) {
+        // MAKE THIS WORK FOR ALL TYPES OF POSITIONS
+        if(!this.#localDB) await this.#initializeDatabase();
+        const data = await this.getLink(linkId);
+
+        if(!data) {
+            nullDataError = new SystemError('Unable to edit link\'s pin mode as it might have been deleted!');
+            this.#onErrorHandle(nullDataError);
+            return null;
+        }
+
+        data.allPosition = position;
+
+        try {
+            await this.#localDB.put('linkbookLinks', data);
+        } catch(err) {
+            const editLinkPositionError = new SystemError(err);
+            this.#onErrorHandle(editLinkPositionError);
+            return null;
+        }
+
+        this.#onLinkbookDataChanged(await this.compileLinkbookData());
+        return data;
+    }
+
+    async editLinkParent(linkId, parent) {
+        if(!this.#localDB) await this.#initializeDatabase();
+        const data = await this.getLink(linkId);
+        const oldParent = await this.getGroup(data.parent);
+        const newParent = await this.getGroup(parent);
+
+        if(!data) {
+            nullDataError = new SystemError('Unable to edit link\'s pin mode as it might have been deleted!');
+            this.#onErrorHandle(nullDataError);
+            return null;
+        }
+
+        if(oldParent && oldParent.groupPosition === data.allPosition) {
+            // find the last largest element and then edit groups element position
+            let cursorLinks = await this.#localDB.transaction('linkbookLinks', 'readonly')
+                .objectStore('linkbookLinks')
+                .index('allPosition')
+                .openCursor(
+                    IDBKeyRange.upperBound(data.allPosition),
+                    'prev'
+                );
+
+            // ignore every similar value of a different parent
+            while(cursorLinks && cursorLinks.value.allPosition === data.allPosition) {
+                cursorLinks = await cursorLinks.continue();
+            }
+
+            // find an adjacent value with a similar parent
+            while(cursorLinks && cursorLinks.value.parent !== oldParent.id) {
+                cursorLinks = await cursorLinks.continue();
+            }
+
+            await this.#editGroupElementPosition(oldParent.id, cursorLinks ? cursorLinks.value.allPosition : 0);
+        }
+
+        data.parent = parent;
+        if(newParent) {
+            data.allPosition = newParent.groupPosition + 1000;
+            this.#editGroupElementPosition(newParent.id, newParent.groupPosition + 1000);
+        } else {
+            data.allPosition = this.#allPosition + 1000;
+        }
+
+        try {
+            await this.#localDB.put('linkbookLinks', data);
+        } catch(err) {
+            const editLinkParentError = new SystemError(err);
+            this.#onErrorHandle(editLinkParentError);
+            return null;
+        }
+
+        this.#onLinkbookDataChanged(await this.compileLinkbookData());
+        return data;
+    }
+
     async createGroup(isPinned) {
         if(!this.#localDB) await this.#initializeDatabase();
         let groupId;
@@ -326,6 +443,22 @@ class LinksModel {
         } catch(err) {
             const getGroupsError = new SystemError(err);
             this.#onErrorHandle(getGroupsError);
+            data = [];
+        }
+
+        return data;
+    }
+
+    async getGroupsIndexedByAllPosition() {
+        if(!this.#localDB) await this.#initializeDatabase();
+        let data;
+
+        try {
+            data = await this.#localDB.getAllFromIndex('linkbookGroups', 'allPosition');
+            if(!data) data = [];
+        } catch(err) {
+            const getLinkError = new SystemError(err);
+            this.#onErrorHandle(getLinkError);
             data = [];
         }
 
@@ -421,7 +554,32 @@ class LinksModel {
         return newGroup;
     }
 
-    async #editGroupPosition(groupId, newPosition) {
+    async editGroupPosition(groupId, position) {
+        // MAKE THIS WORK FOR ALL TYPES OF POSITIONS
+        if(!this.#localDB) await this.#initializeDatabase();
+        const data = await this.getGroup(groupId);
+
+        if(!data) {
+            nullDataError = new SystemError('Unable to edit group\'s position as it might have been deleted!');
+            this.#onErrorHandle(nullDataError);
+            return null;
+        }
+
+        data.allPosition = position;
+
+        try {
+            await this.#localDB.put('linkbookGroups', data);
+        } catch(err) {
+            const editGroupPositionError = new SystemError(err);
+            this.#onErrorHandle(editGroupPositionError);
+            return null;
+        }
+
+        this.#onLinkbookDataChanged(await this.compileLinkbookData());
+        return data;
+    }
+
+    async #editGroupElementPosition(groupId, newPosition) {
         if(!this.#localDB) await this.#initializeDatabase();
         
         const oldGroup = await this.getGroup(groupId);
@@ -444,13 +602,156 @@ class LinksModel {
     }
 
     async relocate(relocationData) {
-        console.log(relocationData);
+        if(relocationData.selectedType === relocationData.newPositionType && relocationData.selectedId === relocationData.newPositionId) return;
+        
         if(relocationData.selectedType === 'link' && relocationData.newPositionType === 'link') {
-            console.log('link relocation structure');
+            let currentLink = await this.getLink(relocationData.selectedId);
+            const newPositionLink = await this.getLink(relocationData.newPositionId); 
+            let isCurrentLinkInsideGroup = currentLink.parent !== 0;
+
+            if(currentLink.parent !== newPositionLink.parent) {
+                await this.editLinkParent(currentLink.id, newPositionLink.parent);
+                currentLink = await this.getLink(currentLink.id);
+                isCurrentLinkInsideGroup = currentLink.parent !== 0;
+            }
+
+            if(currentLink.parent !== 0) {
+                const currentGroup = await this.getGroup(currentLink.parent);
+                if(currentGroup.groupPosition === currentLink.allPosition) return;
+            }
+
+            let cursorLinks = await this.#localDB.transaction('linkbookLinks', 'readonly')
+                .objectStore('linkbookLinks')
+                .index('allPosition')
+                .openCursor(
+                    relocationData.newPositionDirection === 'above' ? 
+                        IDBKeyRange.lowerBound(newPositionLink.allPosition) :
+                        IDBKeyRange.upperBound(newPositionLink.allPosition),
+                    relocationData.newPositionDirection === 'above' ? 'next' : 'prev'
+                );
+
+            while(cursorLinks && cursorLinks.value.allPosition === newPositionLink.allPosition) {
+                cursorLinks = await cursorLinks.continue();
+            }
+
+            while(cursorLinks && cursorLinks.value.parent !== newPositionLink.parent) {
+                cursorLinks = await cursorLinks.continue();
+            }
+
+            let cursorGroups = null;
+            if(!isCurrentLinkInsideGroup) {
+                cursorGroups = await this.#localDB.transaction('linkbookGroups', 'readonly')
+                    .objectStore('linkbookGroups')
+                    .index('allPosition')
+                    .openCursor(
+                        relocationData.newPositionDirection === 'above' ? 
+                        IDBKeyRange.lowerBound(newPositionLink.allPosition) :
+                        IDBKeyRange.upperBound(newPositionLink.allPosition),
+                        relocationData.newPositionDirection === 'above' ? 'next' : 'prev'
+                    );
+
+                while(cursorGroups && cursorGroups.value.allPosition === newPositionLink.allPosition) {
+                    cursorGroups = await cursorGroups.continue();
+                }
+            }
+
+            let nextElement = null;
+            if(cursorLinks && cursorGroups) {
+                if(
+                    (relocationData.newPositionDirection === 'above' && cursorLinks.value.allPosition < cursorGroups.value.allPosition) ||
+                    (relocationData.newPositionDirection === 'below' && cursorLinks.value.allPosition > cursorGroups.value.allPosition)
+
+                ) {
+                    nextElement = cursorLinks.value;
+                } else {
+                    nextElement = cursorGroups.value;
+                }
+            } else if(cursorLinks && !cursorGroups) {
+                nextElement = cursorLinks.value;
+            } else if(!cursorLinks && cursorGroups) {
+                nextElement = cursorGroups.value;
+            }
+
+            if(!nextElement) {
+                if(relocationData.newPositionDirection === 'above') {
+                    currentLink.allPosition = newPositionLink.allPosition + 1000;
+                } else {
+                    currentLink.allPosition = newPositionLink.allPosition - Math.floor(newPositionLink.allPosition / 2);
+                }
+            } else {
+                currentLink.allPosition = Math.floor((newPositionLink.allPosition + nextElement.allPosition) / 2);
+            }
+
+            await this.editLinkPosition(currentLink.id, currentLink.allPosition);
         } else if(relocationData.selectedType === 'link' && relocationData.newPositionType === 'group') {
-            console.log('link to group relocation structure');
+            const currentLink = await this.getLink(relocationData.selectedId);
+            if(currentLink.parent === relocationData.newPositionId) return;
+            await this.editLinkParent(relocationData.selectedId, relocationData.newPositionId);
         } else {
-            console.log('group relocation structure');
+            const currentElement = await this.getGroup(relocationData.selectedId);
+            const newPositionElement = relocationData.newPositionType === 'link' ? 
+                await this.getLink(relocationData.newPositionId) :
+                await this.getGroup(relocationData.newPositionId);
+
+            let cursorLinks = await this.#localDB.transaction('linkbookLinks', 'readonly')
+                .objectStore('linkbookLinks')
+                .index('allPosition')
+                .openCursor(
+                    relocationData.newPositionDirection === 'above' ? 
+                        IDBKeyRange.lowerBound(newPositionElement.allPosition) :
+                        IDBKeyRange.upperBound(newPositionElement.allPosition),
+                    relocationData.newPositionDirection === 'above' ? 'next' : 'prev'
+                );
+
+            while(cursorLinks && cursorLinks.value.allPosition === newPositionElement.allPosition) {
+                cursorLinks = await cursorLinks.continue();
+            }
+
+            while(cursorLinks && cursorLinks.value.parent !== 0) {
+                cursorLinks = await cursorLinks.continue();
+            }
+
+            let cursorGroups = await this.#localDB.transaction('linkbookGroups', 'readonly')
+                .objectStore('linkbookGroups')
+                .index('allPosition')
+                .openCursor(
+                    relocationData.newPositionDirection === 'above' ? 
+                    IDBKeyRange.lowerBound(newPositionElement.allPosition) :
+                    IDBKeyRange.upperBound(newPositionElement.allPosition),
+                    relocationData.newPositionDirection === 'above' ? 'next' : 'prev'
+                );
+
+            while(cursorGroups && cursorGroups.value.allPosition === newPositionElement.allPosition) {
+                cursorGroups = await cursorGroups.continue();
+            }
+
+            let nextElement = null;
+            if(cursorLinks && cursorGroups) {
+                if(
+                    (relocationData.newPositionDirection === 'above' && cursorLinks.value.allPosition < cursorGroups.value.allPosition) ||
+                    (relocationData.newPositionDirection === 'below' && cursorLinks.value.allPosition > cursorGroups.value.allPosition)
+                ) {
+                    nextElement = cursorLinks.value;
+                } else {
+                    nextElement = cursorGroups.value;
+                }
+            } else if(cursorLinks && !cursorGroups) {
+                nextElement = cursorLinks.value;
+            } else if(!cursorLinks && cursorGroups) {
+                nextElement = cursorGroups.value;
+            }
+
+            if(!nextElement) {
+                if(relocationData.newPositionDirection === 'above') {
+                    currentElement.allPosition = newPositionElement.allPosition + 1000;
+                } else {
+                    currentElement.allPosition = newPositionElement.allPosition - Math.floor(newPositionElement.allPosition / 2);
+                }
+            } else {
+                currentElement.allPosition = Math.floor((newPositionElement.allPosition + nextElement.allPosition) / 2);
+            }
+
+            await this.editGroupPosition(currentElement.id, currentElement.allPosition);
         }
     }
 }
@@ -763,14 +1064,12 @@ class LinkbookView {
 
         linkRoot.addEventListener('mousedown', event => {
             event.stopPropagation();
-            console.log('select', event.currentTarget.getAttribute('data-id'));
             this.#selectedElement = event.currentTarget;
             this.#selectedType = 'link';
             this.#onSelectForRelocation(linkData.id, 'link');
         });
 
         linkRoot.addEventListener('mouseup', event => {
-            console.log('deselect', event.currentTarget.getAttribute('data-id'));
             const elementData = event.currentTarget.getAttribute('data-id').split('-');
             let position = null;
 
@@ -863,7 +1162,6 @@ class LinkbookView {
         });
 
         groupRoot.addEventListener('mousedown', event => {
-            console.log('select', event.currentTarget.getAttribute('data-id'));
             event.currentTarget.classList.add('js-selected-element');
             this.#selectedElement = event.currentTarget;
             this.#selectedType = 'group';
@@ -871,7 +1169,6 @@ class LinkbookView {
         });
 
         groupRoot.addEventListener('mouseup', event => {
-            console.log('deselect', event.currentTarget.getAttribute('data-id'));
             const elementData = event.currentTarget.getAttribute('data-id').split('-');
             let position;
 
@@ -882,7 +1179,7 @@ class LinkbookView {
                 position = 'above';
             }
 
-            this.#onRelocateSuccess(elementData[0], elementData[1], position);
+            this.#onRelocateSuccess(parseInt(elementData[0]), elementData[1], position);
 
             groupHeader.classList.remove('js-hovered-group');
             groupRoot.classList.remove('js-hovered-group-top');
