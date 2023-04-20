@@ -10,12 +10,15 @@ class LinksModel {
     #onErrorHandle;
 
     #allPosition;
-    #pinnedPosition;
+    #pinnedPositionLinks;
+    #pinnedPositionGroups;
 
     constructor() {
         this.#databaseName = 'Primary';
         this.#databaseVersion = '2';
-    } bindLinkbookDataChanged(callback) {
+    } 
+
+    bindLinkbookDataChanged(callback) {
         this.#onLinkbookDataChanged = callback;
     }
 
@@ -27,13 +30,14 @@ class LinksModel {
         const links = await this.getLinksIndexedByAllPosition();
         const groups = await this.getGroupsIndexedByAllPosition();
         this.#allPosition = 0;
-        this.#pinnedPosition = 0;
+        this.#pinnedPositionLinks = 0;
+        this.#pinnedPositionGroups = 0;
 
         const groupChildren = new Map();
         groupChildren.set(0, []);       
         for(const group of groups) {
             if(group.allPosition > this.#allPosition) this.#allPosition = group.allPosition;
-            if(group.pinnedPosition > this.#pinnedPosition) this.#pinnedPosition = group.pinnedPosition;
+            if(group.pinnedPosition > this.#pinnedPositionGroups) this.#pinnedPositionGroups = group.pinnedPosition;
             if(groupChildren.has(group.id)) continue;
             groupChildren.set(group.id, []);       
         }
@@ -41,7 +45,7 @@ class LinksModel {
         for(const link of links) {
             const typedLink = {...link, type: 'link'};
             if(link.parent === 0 && link.allPosition > this.#allPosition) this.#allPosition = link.allPosition;
-            if(link.parent === 0 && link.pinnedPosition > this.#pinnedPosition) this.#pinnedPosition = link.pinnedPosition;
+            if(link.parent === 0 && link.pinnedPosition > this.#pinnedPositionLinks) this.#pinnedPositionLinks = link.pinnedPosition;
             groupChildren.set(link.parent, [...groupChildren.get(link.parent), typedLink]);
         }
 
@@ -154,7 +158,7 @@ class LinksModel {
             parent, 
             isPinned,
             allPosition,
-            pinnedPosition: isPinned ? this.#pinnedPosition + 1000: 0
+            pinnedPosition: isPinned ? this.#pinnedPositionLinks + 1000 : 0
         };
 
         try {
@@ -287,7 +291,6 @@ class LinksModel {
     async editLinkPin(linkId, isPinned) {
         if(!this.#localDB) await this.#initializeDatabase();
         const data = await this.getLink(linkId);
-        let linkData;
 
         if(!data) {
             nullDataError = new SystemError('Unable to edit link\'s pin mode as it might have been deleted!');
@@ -295,10 +298,11 @@ class LinksModel {
             return null;
         }
 
-        linkData = {...data, isPinned};
+        data.isPinned = isPinned;
+        data.pinnedPosition = isPinned ? this.#pinnedPositionLinks + 1000 : 0;
 
         try {
-            await this.#localDB.put('linkbookLinks', linkData);
+            await this.#localDB.put('linkbookLinks', data);
         } catch(err) {
             const editLinkPinError = new SystemError(err);
             this.#onErrorHandle(editLinkPinError);
@@ -306,10 +310,10 @@ class LinksModel {
         }
 
         this.#onLinkbookDataChanged(await this.compileLinkbookData());
-        return linkData;
+        return data;
     }
 
-    async editLinkPosition(linkId, position) {
+    async editLinkPosition(linkId, position, category) {
         // MAKE THIS WORK FOR ALL TYPES OF POSITIONS
         if(!this.#localDB) await this.#initializeDatabase();
         const data = await this.getLink(linkId);
@@ -320,7 +324,11 @@ class LinksModel {
             return null;
         }
 
-        data.allPosition = position;
+        if(category === 'all') {
+            data.allPosition = position;
+        } else {
+            data.pinnedPosition = position;
+        }
 
         try {
             await this.#localDB.put('linkbookLinks', data);
@@ -402,7 +410,7 @@ class LinksModel {
             name: '', 
             isPinned,
             allPosition: this.#allPosition + 1000,
-            pinnedPosition: isPinned ? this.#pinnedPosition + 1000: 0,
+            pinnedPosition: isPinned ? this.#pinnedPositionLinks + 1000: 0,
             groupPosition: 0
         };
 
@@ -540,10 +548,11 @@ class LinksModel {
             this.#onErrorHandle(nullGroupError);
             return null;
         }
-        const newGroup = {...data, isPinned};
+        data.isPinned = isPinned;
+        data.pinnedPosition = isPinned ? this.#pinnedPositionGroups + 1000 : 0;
 
         try {
-            await this.#localDB.put('linkbookGroups', newGroup);
+            await this.#localDB.put('linkbookGroups', data);
         } catch(err) {
             const deleteGroupError = new SystemError(err);
             this.#onErrorHandle(deleteGroupError);
@@ -551,10 +560,10 @@ class LinksModel {
         }
 
         this.#onLinkbookDataChanged(await this.compileLinkbookData());
-        return newGroup;
+        return data;
     }
 
-    async editGroupPosition(groupId, position) {
+    async editGroupPosition(groupId, position, category) {
         // MAKE THIS WORK FOR ALL TYPES OF POSITIONS
         if(!this.#localDB) await this.#initializeDatabase();
         const data = await this.getGroup(groupId);
@@ -565,7 +574,11 @@ class LinksModel {
             return null;
         }
 
-        data.allPosition = position;
+        if(category === 'all') {
+            data.allPosition = position;
+        } else {
+            data.pinnedPosition = position;
+        }
 
         try {
             await this.#localDB.put('linkbookGroups', data);
@@ -609,6 +622,17 @@ class LinksModel {
             const newPositionLink = await this.getLink(relocationData.newPositionId); 
             let isCurrentLinkInsideGroup = currentLink.parent !== 0;
 
+            const isRelocatingInPinned = relocationData.relocationCategory === 'pinned';
+            let currentLinkPosition = !isRelocatingInPinned ? currentLink.allPosition : currentLink.pinnedPosition;
+            let newPositionLinkPosition = !isRelocatingInPinned ? newPositionLink.allPosition : newPositionLink.pinnedPosition;
+            const dbIndex = !isRelocatingInPinned ? 'allPosition' : 'pinnedPosition';
+            const cursorPositionValue = (cursor, isRelocatingInPinned) => { return !isRelocatingInPinned ? cursor.value.allPosition : cursor.value.pinnedPosition; };
+
+            if(
+                isRelocatingInPinned && 
+                (!currentLink.isPinned || !newPositionLink.isPinned)
+            ) return;
+
             if(currentLink.parent !== newPositionLink.parent) {
                 await this.editLinkParent(currentLink.id, newPositionLink.parent);
                 currentLink = await this.getLink(currentLink.id);
@@ -617,20 +641,20 @@ class LinksModel {
 
             if(currentLink.parent !== 0) {
                 const currentGroup = await this.getGroup(currentLink.parent);
-                if(currentGroup.groupPosition === currentLink.allPosition) return;
+                if(currentGroup.groupPosition === currentLinkPosition) return;
             }
 
             let cursorLinks = await this.#localDB.transaction('linkbookLinks', 'readonly')
                 .objectStore('linkbookLinks')
-                .index('allPosition')
+                .index(dbIndex)
                 .openCursor(
                     relocationData.newPositionDirection === 'above' ? 
-                        IDBKeyRange.lowerBound(newPositionLink.allPosition) :
-                        IDBKeyRange.upperBound(newPositionLink.allPosition),
+                        IDBKeyRange.lowerBound(newPositionLinkPosition) :
+                        IDBKeyRange.upperBound(newPositionLinkPosition),
                     relocationData.newPositionDirection === 'above' ? 'next' : 'prev'
                 );
 
-            while(cursorLinks && cursorLinks.value.allPosition === newPositionLink.allPosition) {
+            while(cursorLinks && cursorPositionValue(cursorLinks, isRelocatingInPinned) === newPositionLinkPosition) {
                 cursorLinks = await cursorLinks.continue();
             }
 
@@ -642,68 +666,82 @@ class LinksModel {
             if(!isCurrentLinkInsideGroup) {
                 cursorGroups = await this.#localDB.transaction('linkbookGroups', 'readonly')
                     .objectStore('linkbookGroups')
-                    .index('allPosition')
+                    .index(dbIndex)
                     .openCursor(
                         relocationData.newPositionDirection === 'above' ? 
-                        IDBKeyRange.lowerBound(newPositionLink.allPosition) :
-                        IDBKeyRange.upperBound(newPositionLink.allPosition),
+                        IDBKeyRange.lowerBound(newPositionLinkPosition) :
+                        IDBKeyRange.upperBound(newPositionLinkPosition),
                         relocationData.newPositionDirection === 'above' ? 'next' : 'prev'
                     );
 
-                while(cursorGroups && cursorGroups.value.allPosition === newPositionLink.allPosition) {
+                while(cursorGroups && cursorPositionValue(cursorGroups, isRelocatingInPinned) === newPositionLinkPosition) {
                     cursorGroups = await cursorGroups.continue();
                 }
             }
 
             let nextElement = null;
-            if(cursorLinks && cursorGroups) {
+            if(!isRelocatingInPinned && cursorLinks && cursorGroups) {
                 if(
-                    (relocationData.newPositionDirection === 'above' && cursorLinks.value.allPosition < cursorGroups.value.allPosition) ||
-                    (relocationData.newPositionDirection === 'below' && cursorLinks.value.allPosition > cursorGroups.value.allPosition)
+                    (relocationData.newPositionDirection === 'above' && cursorPositionValue(cursorLinks, isRelocatingInPinned) < cursorPositionValue(cursorGroups, isRelocatingInPinned)) ||
+                    (relocationData.newPositionDirection === 'below' && cursorPositionValue(cursorLinks, isRelocatingInPinned) > cursorPositionValue(cursorGroups, isRelocatingInPinned))
 
                 ) {
                     nextElement = cursorLinks.value;
                 } else {
                     nextElement = cursorGroups.value;
                 }
-            } else if(cursorLinks && !cursorGroups) {
+            } else if(isRelocatingInPinned && cursorLinks && !cursorGroups) {
                 nextElement = cursorLinks.value;
-            } else if(!cursorLinks && cursorGroups) {
+            } else if(!isRelocatingInPinned && !cursorLinks && cursorGroups) {
                 nextElement = cursorGroups.value;
             }
 
             if(!nextElement) {
                 if(relocationData.newPositionDirection === 'above') {
-                    currentLink.allPosition = newPositionLink.allPosition + 1000;
+                    currentLinkPosition = newPositionLinkPosition + 1000;
                 } else {
-                    currentLink.allPosition = newPositionLink.allPosition - Math.floor(newPositionLink.allPosition / 2);
+                    currentLinkPosition = newPositionLinkPosition - Math.floor(newPositionLinkPosition / 2);
                 }
             } else {
-                currentLink.allPosition = Math.floor((newPositionLink.allPosition + nextElement.allPosition) / 2);
+                    currentLinkPosition = Math.floor((newPositionLinkPosition + (!isRelocatingInPinned ? nextElement.allPosition : nextElement.pinnedPosition)) / 2);
             }
-
-            await this.editLinkPosition(currentLink.id, currentLink.allPosition);
+            
+            await this.editLinkPosition(currentLink.id, currentLinkPosition, relocationData.relocationCategory);
         } else if(relocationData.selectedType === 'link' && relocationData.newPositionType === 'group') {
             const currentLink = await this.getLink(relocationData.selectedId);
             if(currentLink.parent === relocationData.newPositionId) return;
             await this.editLinkParent(relocationData.selectedId, relocationData.newPositionId);
         } else {
+            const isRelocatingInPinned = relocationData.relocationCategory === 'pinned';
+            // Prevent illegal moves
+            if(
+                isRelocatingInPinned && 
+                (
+                    relocationData.selectedId === 0 || 
+                    (isRelocatingInPinned && relocationData.newPositionId === 0 && relocationData.newPositionDirection === 'below')
+                )
+            ) return;
+
             const currentElement = await this.getGroup(relocationData.selectedId);
             const newPositionElement = relocationData.newPositionType === 'link' ? 
                 await this.getLink(relocationData.newPositionId) :
                 await this.getGroup(relocationData.newPositionId);
+            let currentElementPosition = !isRelocatingInPinned ? currentElement.allPosition : currentElement.pinnedPosition;
+            let newPositionElementPosition = !isRelocatingInPinned ? newPositionElement.allPosition : newPositionElement.pinnedPosition;
+            const dbIndex = !isRelocatingInPinned ? 'allPosition' : 'pinnedPosition';
+            const cursorPositionValue = (cursor, isRelocatingInPinned) => { return !isRelocatingInPinned ? cursor.value.allPosition : cursor.value.pinnedPosition; };
 
             let cursorLinks = await this.#localDB.transaction('linkbookLinks', 'readonly')
                 .objectStore('linkbookLinks')
-                .index('allPosition')
+                .index(dbIndex)
                 .openCursor(
                     relocationData.newPositionDirection === 'above' ? 
-                        IDBKeyRange.lowerBound(newPositionElement.allPosition) :
-                        IDBKeyRange.upperBound(newPositionElement.allPosition),
+                        IDBKeyRange.lowerBound(newPositionElementPosition) :
+                        IDBKeyRange.upperBound(newPositionElementPosition),
                     relocationData.newPositionDirection === 'above' ? 'next' : 'prev'
                 );
 
-            while(cursorLinks && cursorLinks.value.allPosition === newPositionElement.allPosition) {
+            while(cursorLinks && cursorPositionValue(cursorLinks, isRelocatingInPinned) === newPositionElementPosition) {
                 cursorLinks = await cursorLinks.continue();
             }
 
@@ -713,45 +751,45 @@ class LinksModel {
 
             let cursorGroups = await this.#localDB.transaction('linkbookGroups', 'readonly')
                 .objectStore('linkbookGroups')
-                .index('allPosition')
+                .index(dbIndex)
                 .openCursor(
                     relocationData.newPositionDirection === 'above' ? 
-                    IDBKeyRange.lowerBound(newPositionElement.allPosition) :
-                    IDBKeyRange.upperBound(newPositionElement.allPosition),
+                    IDBKeyRange.lowerBound(newPositionElementPosition) :
+                    IDBKeyRange.upperBound(newPositionElementPosition),
                     relocationData.newPositionDirection === 'above' ? 'next' : 'prev'
                 );
 
-            while(cursorGroups && cursorGroups.value.allPosition === newPositionElement.allPosition) {
+            while(cursorGroups && cursorPositionValue(cursorGroups, isRelocatingInPinned) === newPositionElementPosition) {
                 cursorGroups = await cursorGroups.continue();
             }
 
             let nextElement = null;
-            if(cursorLinks && cursorGroups) {
+            if(!isRelocatingInPinned && cursorLinks && cursorGroups) {
                 if(
-                    (relocationData.newPositionDirection === 'above' && cursorLinks.value.allPosition < cursorGroups.value.allPosition) ||
-                    (relocationData.newPositionDirection === 'below' && cursorLinks.value.allPosition > cursorGroups.value.allPosition)
+                    (relocationData.newPositionDirection === 'above' && cursorPositionValue(cursorLinks, isRelocatingInPinned) < cursorPositionValue(cursorGroups, isRelocatingInPinned)) ||
+                    (relocationData.newPositionDirection === 'below' && cursorPositionValue(cursorLinks, isRelocatingInPinned) > cursorPositionValue(cursorGroups, isRelocatingInPinned))
                 ) {
                     nextElement = cursorLinks.value;
                 } else {
                     nextElement = cursorGroups.value;
                 }
-            } else if(cursorLinks && !cursorGroups) {
+            } else if(!isRelocatingInPinned && cursorLinks && !cursorGroups) {
                 nextElement = cursorLinks.value;
-            } else if(!cursorLinks && cursorGroups) {
+            } else if(isRelocatingInPinned && !cursorLinks && cursorGroups) {
                 nextElement = cursorGroups.value;
             }
 
             if(!nextElement) {
                 if(relocationData.newPositionDirection === 'above') {
-                    currentElement.allPosition = newPositionElement.allPosition + 1000;
+                    currentElementPosition = newPositionElementPosition + 1000;
                 } else {
-                    currentElement.allPosition = newPositionElement.allPosition - Math.floor(newPositionElement.allPosition / 2);
+                    currentElementPosition = newPositionElementPosition - Math.floor(newPositionElementPosition / 2);
                 }
             } else {
-                currentElement.allPosition = Math.floor((newPositionElement.allPosition + nextElement.allPosition) / 2);
+                currentElementPosition = Math.floor((newPositionElementPosition + !isRelocatingInPinned ? nextElement.allPosition : nextElement.pinnedPosition) / 2);
             }
 
-            await this.editGroupPosition(currentElement.id, currentElement.allPosition);
+            await this.editGroupPosition(currentElement.id, currentElementPosition, relocationData.relocationCategory);
         }
     }
 }
@@ -1008,7 +1046,11 @@ class LinkbookView {
         const linkNameText = this.createElement('span', 'linkbook-browser-links-group__link-item-name');
 
         linkImg.src = `https://www.google.com/s2/favicons?domain=${linkData.link}&sz=64`;
-        linkNameText.textContent = `${linkData.name}:${!isPinned ? linkData.allPosition : linkData.pinnedPosition}`;
+        // answer 
+        // is link show pinned, when is it inside pinned, when linkData.isPinned but this shows everywhere else regardless
+        // so ughhhh when does it only show there?
+        // everywhere else show basic
+        linkNameText.textContent = `${linkData.name}:${(location !== 'pinned') ? linkData.allPosition : linkData.pinnedPosition}`;
 
         linkRoot.setAttribute('data-id', `${linkData.id}-${linkData.type}`);
         linkRoot.setAttribute('data-location', location);
@@ -1080,7 +1122,7 @@ class LinkbookView {
                 position = 'above';
             }
 
-            this.#onRelocateSuccess(parseInt(elementData[0]), elementData[1], position);
+            this.#onRelocateSuccess(parseInt(elementData[0]), elementData[1], position, !isPinned ? 'all' : 'pinned');
 
             linkRoot.classList.remove('js-hovered-link-top');
             linkRoot.classList.remove('js-hovered-link-bottom');
@@ -1179,7 +1221,7 @@ class LinkbookView {
                 position = 'above';
             }
 
-            this.#onRelocateSuccess(parseInt(elementData[0]), elementData[1], position);
+            this.#onRelocateSuccess(parseInt(elementData[0]), elementData[1], position, !isPinned ? 'all' : 'pinned');
 
             groupHeader.classList.remove('js-hovered-group');
             groupRoot.classList.remove('js-hovered-group-top');
@@ -1453,6 +1495,7 @@ class LinksController {
             groupPosition: 0
             
         };
+
         const restDisplay = [];
         for(const element of data) {
             if(element.type === 'link') {
@@ -1494,6 +1537,37 @@ class LinksController {
             }
         }
 
+        for(let i = 0; i < displayData.length - 1; i++) {
+            let min = displayData[i];
+            let minPos = i;
+
+            for(let j = i + 1; j < displayData.length; j++) {
+                if(displayData[j].pinnedPosition < min.pinnedPosition) {
+                    min = displayData[j];
+                    minPos = j;
+                }
+            }
+
+            if(minPos === i) continue;
+            displayData[minPos] = displayData[i];
+            displayData[i] = min;
+       }
+
+        for(let i = 0; i < displayData[0].children.length - 1; i++) {
+            let min = displayData[0].children[i];
+            let minPos = i;
+
+            for(let j = i + 1; j < displayData[0].children.length; j++) {
+                if(displayData[0].children[j].pinnedPosition < min.pinnedPosition) {
+                    min = displayData[0].children[j];
+                    minPos = j;
+                }
+            }
+
+            if(minPos === i) continue;
+            displayData[0].children[minPos] = displayData[0].children[i];
+            displayData[0].children[i] = min;
+       }
 
         this.#view.displayAllLinksCategory(data);
         this.#view.displayPinnedLinksCategory(displayData);
@@ -1623,11 +1697,12 @@ class LinksController {
         this.#isRelocatable = false;
     }
 
-    #onRelocateSuccess(positionElementId, positionElementType, selectedElementLocation) {
+    #onRelocateSuccess(positionElementId, positionElementType, selectedElementLocation, relocationCategory) {
         if(!this.#isRelocatable || !this.#relocationData || (this.#relocationData.selectedType === 'link' && this.#relocationData.newPositionId)) return;
         this.#relocationData.newPositionId = positionElementId;
         this.#relocationData.newPositionType = positionElementType;
         this.#relocationData.newPositionDirection = selectedElementLocation;
+        this.#relocationData.relocationCategory = relocationCategory;
 
         this.#model.relocate(this.#relocationData);
     }
