@@ -5,7 +5,8 @@
     "permissions": ["activeTab"],
     "browser_specific_settings": {
         "gecko": {
-            "id": "welcome@productivity.com"
+            "id": "welcome-start-menu@productivity.com",
+            "update_url": "https://welcome-homepage.vercel.app/updates/updates.json"
         }
     },
     "chrome_settings_overrides": {
