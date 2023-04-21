@@ -874,12 +874,14 @@ class LinkbookView {
 
         this.#pinnedLinksList.addEventListener('mousemove', event => {
             if(event.buttons !== 1) return;
+            if(this.#selectedElement && this.#selectedElement.getAttribute('data-location') === 'all') return;
             this.#pinnedLinksList.classList.add('js-move');
             if(this.#selectedElement) this.#selectedElement.classList.add('js-selected-element');
         });
 
         this.#allLinksList.addEventListener('mousemove', event => {
             if(event.buttons !== 1) return;
+            if(this.#selectedElement && this.#selectedElement.getAttribute('data-location') === 'pinned') return;
             this.#allLinksList.classList.add('js-move');
             if(this.#selectedElement) this.#selectedElement.classList.add('js-selected-element');
         });
@@ -1085,6 +1087,14 @@ class LinkbookView {
 
         linkRoot.addEventListener('mousemove', event => {
             if(!this.#selectedElement) return;
+
+            if(
+                this.#selectedElement && (
+                    this.#selectedElement.getAttribute('data-location').includes('all') && !location.includes('all') ||
+                    this.#selectedElement.getAttribute('data-location').includes('pinned') && !location.includes('pinned')
+                )
+            ) return;
+
             if(this.#selectedType === 'group' && linkData.parent !== 0) return;
             const rootData = linkRoot.getBoundingClientRect();
 
