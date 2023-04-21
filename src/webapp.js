@@ -875,6 +875,7 @@ class LinkbookView {
         this.#pinnedLinksList.addEventListener('mousemove', event => {
             if(event.buttons !== 1) return;
             this.#pinnedLinksList.classList.add('js-move');
+            if(this.#selectedElement) this.#selectedElement.classList.add('js-selected-element');
         });
 
         this.#allLinksList.addEventListener('mousemove', event => {
